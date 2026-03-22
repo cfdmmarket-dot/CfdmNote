@@ -16,14 +16,17 @@
 // Motor interno do CfdmNote
 #include "gui/Application.h"
 #include "gui/MainWindow.h"
+#include "gui/DatabaseWidget.h"
+#include "gui/DatabaseTabWidget.h"
 #include "core/Bootstrap.h"
+#include "core/Entry.h"
 
 // Nossas adições
 #include "gui/NoteEditorWidget.h"
 #include "gui/VaultDialog.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.0.1";
+static const QString APP_VERSION = "1.0.2";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -89,6 +92,41 @@ protected:
     }
 };
 
+/**
+ * Conecta o sinal entrySelectionChanged do DatabaseWidget ao NoteEditorWidget.
+ * Chamado sempre que um banco é aberto ou trocado.
+ */
+static void connectDbWidget(DatabaseWidget* dbWidget, NoteEditorWidget* noteEditor)
+{
+    if (!dbWidget || !noteEditor) return;
+    QObject::connect(dbWidget, &DatabaseWidget::entrySelectionChanged,
+                     noteEditor, [dbWidget, noteEditor]() {
+        Entry* entry = dbWidget->currentSelectedEntry();
+        if (entry)
+            noteEditor->loadNoteForEntry(entry->uuidToHex());
+        else
+            noteEditor->clearNote();
+    });
+}
+
+static void connectEntryToNotes(MainWindow* mw, NoteEditorWidget* noteEditor)
+{
+    auto* tabWidget = mw->findChild<DatabaseTabWidget*>();
+    if (!tabWidget) return;
+
+    // Quando banco ativo mudar → reconecta
+    QObject::connect(tabWidget, &DatabaseTabWidget::activeDatabaseChanged,
+                     noteEditor, [noteEditor](DatabaseWidget* dbWidget) {
+        if (!dbWidget)
+            noteEditor->clearNote();
+        else
+            connectDbWidget(dbWidget, noteEditor);
+    });
+
+    // Banco já aberto agora (se houver)
+    connectDbWidget(tabWidget->currentDatabaseWidget(), noteEditor);
+}
+
 int main(int argc, char* argv[])
 {
     Application app(argc, argv);
@@ -111,21 +149,6 @@ int main(int argc, char* argv[])
     MainWindow mainWindow;
     mainWindow.setWindowIcon(cfdmIcon);
 
-    // Instala filtro de título (substitui "KeePassXC" → "CfdmNote")
-    auto* titleFilter = new TitleFilter(&mainWindow);
-    mainWindow.installEventFilter(titleFilter);
-
-    // Força título e patches visuais após a janela inicializar
-    QTimer::singleShot(0, &mainWindow, [&mainWindow, &iconPath]() {
-        // Título
-        QString t = mainWindow.windowTitle();
-        t.replace("KeePassXC", APP_NAME);
-        mainWindow.setWindowTitle(t.isEmpty() ? APP_NAME : t);
-
-        // WelcomeWidget: texto de boas-vindas + ícone
-        patchWelcomeWidget(&mainWindow, iconPath);
-    });
-
     // ── Painel de Notas Markdown (dock lateral) ───────────────────────────────
     auto* noteDock = new QDockWidget(QObject::tr("Notas"), &mainWindow);
     noteDock->setObjectName("CfdmNotesDock");
@@ -136,6 +159,24 @@ int main(int argc, char* argv[])
     auto* noteEditor = new NoteEditorWidget(noteDock);
     noteDock->setWidget(noteEditor);
     mainWindow.addDockWidget(Qt::RightDockWidgetArea, noteDock);
+
+    // Instala filtro de título (substitui "KeePassXC" → "CfdmNote")
+    auto* titleFilter = new TitleFilter(&mainWindow);
+    mainWindow.installEventFilter(titleFilter);
+
+    // Força título, patches visuais e conexão de entradas após inicializar
+    QTimer::singleShot(0, &mainWindow, [&mainWindow, &iconPath, noteEditor]() {
+        // Título
+        QString t = mainWindow.windowTitle();
+        t.replace("KeePassXC", APP_NAME);
+        mainWindow.setWindowTitle(t.isEmpty() ? APP_NAME : t);
+
+        // WelcomeWidget: texto de boas-vindas + ícone
+        patchWelcomeWidget(&mainWindow, iconPath);
+
+        // Conecta seleção de entrada → painel de notas
+        connectEntryToNotes(&mainWindow, noteEditor);
+    });
 
     // ── Menu CfdmNote ─────────────────────────────────────────────────────────
     QMenu* cfdmMenu = new QMenu(QObject::tr("&CfdmNote"), &mainWindow);
