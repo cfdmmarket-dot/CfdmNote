@@ -1,8 +1,5 @@
 /*
- * CfdmNote — Gerenciador de senhas com notas Markdown integradas
- *
- * Interface: CfdmNote (baseada em motor open-source de gerenciamento de senhas).
- * Adiciona painel de notas como QDockWidget e menu CfdmNote.
+ * CfdmNote v1.0.1 — Gerenciador de senhas com notas Markdown integradas
  */
 
 #include <QFile>
@@ -11,6 +8,10 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QMessageBox>
+#include <QEvent>
+#include <QIcon>
+#include <QPixmap>
+#include <QTimer>
 
 // Motor interno do CfdmNote
 #include "gui/Application.h"
@@ -21,18 +22,66 @@
 #include "gui/NoteEditorWidget.h"
 #include "gui/VaultDialog.h"
 
+static const QString APP_NAME    = "CfdmNote";
+static const QString APP_VERSION = "1.0.1";
+
+/**
+ * TitleFilter — intercepta mudanças de título na MainWindow
+ * e substitui "KeePassXC" por "CfdmNote" automaticamente.
+ * Cobre todos os casos: janela vazia, banco aberto, banco modificado.
+ */
+class TitleFilter : public QObject
+{
+public:
+    explicit TitleFilter(QObject* parent = nullptr) : QObject(parent) {}
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override
+    {
+        if (event->type() == QEvent::WindowTitleChange) {
+            auto* w = qobject_cast<QWidget*>(obj);
+            if (w) {
+                QString title = w->windowTitle();
+                if (title.contains("KeePassXC")) {
+                    title.replace("KeePassXC", APP_NAME);
+                    w->setWindowTitle(title);
+                    return true;
+                }
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
+
 int main(int argc, char* argv[])
 {
     Application app(argc, argv);
 
     // Bootstrap do motor (crypto, config, recursos, traduções, etc.)
     Bootstrap::bootstrap();
-    app.setApplicationName("CfdmNote");
-    app.setApplicationDisplayName("CfdmNote");
-    app.setApplicationVersion("1.0.0");
+    app.setApplicationName(APP_NAME);
+    app.setApplicationDisplayName(APP_NAME);
+    app.setApplicationVersion(APP_VERSION);
 
-    // ── Janela principal do CfdmNote ─────────────────────────────────────────
+    // ── Ícone do CfdmNote ─────────────────────────────────────────────────────
+    const QString iconPath = QString("%1/../resources/icons/cfdmnote_128.png")
+                             .arg(app.applicationDirPath());
+    if (QFile::exists(iconPath))
+        app.setWindowIcon(QIcon(iconPath));
+
+    // ── Janela principal do CfdmNote ──────────────────────────────────────────
     MainWindow mainWindow;
+
+    // Instala filtro de título (substitui "KeePassXC" → "CfdmNote")
+    auto* titleFilter = new TitleFilter(&mainWindow);
+    mainWindow.installEventFilter(titleFilter);
+
+    // Força o título correto após a janela inicializar
+    QTimer::singleShot(0, &mainWindow, [&mainWindow]() {
+        QString t = mainWindow.windowTitle();
+        t.replace("KeePassXC", APP_NAME);
+        mainWindow.setWindowTitle(t.isEmpty() ? APP_NAME : t);
+    });
 
     // ── Painel de Notas Markdown (dock lateral) ───────────────────────────────
     auto* noteDock = new QDockWidget(QObject::tr("Notas"), &mainWindow);
@@ -69,7 +118,7 @@ int main(int argc, char* argv[])
 
     cfdmMenu->addSeparator();
 
-    // Sobre
+    // Sobre CfdmNote
     QObject::connect(
         cfdmMenu->addAction(QObject::tr("Sobre &CfdmNote")),
         &QAction::triggered,
@@ -77,22 +126,22 @@ int main(int argc, char* argv[])
             QMessageBox::about(&mainWindow,
                 QObject::tr("Sobre CfdmNote"),
                 QObject::tr(
-                    "<b>CfdmNote v1.0</b><br><br>"
+                    "<b>CfdmNote v%1</b><br><br>"
                     "Gerenciador de senhas com notas Markdown integradas.<br><br>"
                     "<b>Funcionalidades:</b><br>"
                     "&#8226; Entradas e grupos de senhas<br>"
+                    "&#8226; Auto-Type<br>"
                     "&#8226; Notas Markdown vinculadas a entradas<br>"
                     "&#8226; [[wiki-links]] entre notas<br>"
                     "&#8226; Grafo de conhecimento<br>"
                     "&#8226; Banco nativo .ksdb (SQLite + FTS5)<br>"
-                    "&#8226; Cofre criptografado opcional (.kdbx)<br>"
-                    "&#8226; Auto-Type"
-                )
+                    "&#8226; Cofre criptografado opcional (.kdbx)"
+                ).arg(APP_VERSION)
             );
         }
     );
 
-    // Insere o menu antes do último (Ajuda)
+    // Insere o menu CfdmNote antes do menu Ajuda
     QList<QAction*> mbActions = mainWindow.menuBar()->actions();
     QAction* before = mbActions.isEmpty() ? nullptr : mbActions.last();
     mainWindow.menuBar()->insertMenu(before, cfdmMenu);
