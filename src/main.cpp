@@ -24,10 +24,10 @@
 
 int main(int argc, char* argv[])
 {
-    // Bootstrap do KeePassXC (crypto, config, recursos, traduções, etc.)
-    Bootstrap::bootstrap(argc, argv);
-
     Application app(argc, argv);
+
+    // Bootstrap do KeePassXC (crypto, config, recursos, traduções, etc.)
+    Bootstrap::bootstrap();
     app.setApplicationName("CfdmNote");
     app.setApplicationDisplayName("CfdmNote");
     app.setApplicationVersion("1.0.0");

@@ -28,15 +28,12 @@ set(WITH_APP_BUNDLE     OFF CACHE BOOL "" FORCE)
 set(WITH_DOCS           OFF CACHE BOOL "" FORCE)
 set(WITH_XC_DOCS        OFF CACHE BOOL "" FORCE)
 
-# Renomeia o executável do KeePassXC para não conflitar
-set(PROGNAME keepassxc_base CACHE STRING "" FORCE)
-
 # ─── KeePassXC completo como subprojeto (Qt5, keepassxc_core, keepassxc_gui) ─
-# Produz: keepassxc_core (static), keepassxc_gui (static), keepassxc_base (exe)
+# Produz: keepassxc_core (static), keepassxc_gui (static), keepassxc (exe — não usamos)
 add_subdirectory(third_party/keepassxc EXCLUDE_FROM_ALL)
 
-# Não precisamos do executável original do KeePassXC
-set_target_properties(keepassxc_base PROPERTIES EXCLUDE_FROM_ALL TRUE)
+# O executável original do KeePassXC se chama "keepassxc" — excluímos da build padrão
+set_target_properties(keepassxc PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 # ─── cmark-gfm (Markdown GFM parser) ─────────────────────────────────────────
 set(CMARK_TESTS  OFF CACHE BOOL "" FORCE)
@@ -53,6 +50,13 @@ set(CFDMNOTE_SRCS
 
 add_executable(cfdmnote ${CFDMNOTE_SRCS})
 
+# Qt5Sql (necessário para NoteManager / QSqlDatabase)
+find_package(Qt5 COMPONENTS Sql REQUIRED)
+
+# Botan (necessário para VaultDialog / PasswordKey)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(BOTAN REQUIRED botan-2)
+
 target_include_directories(cfdmnote PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     # headers do KeePassXC (MainWindow, Application, Entry, etc.)
@@ -62,12 +66,17 @@ target_include_directories(cfdmnote PRIVATE
     # cmark-gfm
     ${CMAKE_SOURCE_DIR}/third_party/cmark-gfm/src
     ${CMAKE_BINARY_DIR}/third_party/cmark-gfm/src
+    ${CMAKE_SOURCE_DIR}/third_party/cmark-gfm/extensions
+    # botan headers (ex: /usr/include/botan-2)
+    ${BOTAN_INCLUDE_DIRS}
 )
 
 target_link_libraries(cfdmnote PRIVATE
     keepassxc_gui       # inclui keepassxc_core transitivamente
-    cmark-gfm_static
-    cmark-gfmextensions_static
+    Qt5::Sql
+    libcmark-gfm-extensions_static   # extensions primeiro (depende do core)
+    libcmark-gfm_static               # core depois
+    ${BOTAN_LIBRARIES}
 )
 
 install(TARGETS cfdmnote DESTINATION bin)

@@ -13,7 +13,7 @@
 #include "core/Database.h"
 #include "core/Group.h"
 #include "core/Metadata.h"
-#include "format/KdbxWriter.h"
+#include "format/Kdbx4Writer.h"
 #include "crypto/kdf/Argon2Kdf.h"
 #include "keys/CompositeKey.h"
 #include "keys/PasswordKey.h"
@@ -238,7 +238,7 @@ bool VaultDialog::createVault(const QString& filePath, const QString& password)
     key->addKey(QSharedPointer<PasswordKey>::create(password));
 
     // Argon2d KDF (padrão do KeePassXC)
-    auto kdf = QSharedPointer<Argon2Kdf>::create(Argon2Kdf::Type::D);
+    auto kdf = QSharedPointer<Argon2Kdf>::create(Argon2Kdf::Type::Argon2d);
     kdf->setRounds(8);
     kdf->setMemory(65536);   // 64 MB
     kdf->setParallelism(2);
@@ -246,11 +246,11 @@ bool VaultDialog::createVault(const QString& filePath, const QString& password)
     db->setKey(key);
     db->setKdf(kdf);
 
-    // Salva via KdbxWriter do KeePassXC
+    // Salva via Kdbx4Writer do KeePassXC (implementação concreta de KdbxWriter)
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) return false;
 
-    KdbxWriter writer;
+    Kdbx4Writer writer;
     const bool ok = writer.writeDatabase(&file, db.data());
     file.close();
 
