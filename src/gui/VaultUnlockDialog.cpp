@@ -183,7 +183,12 @@ void VaultUnlockDialog::onBrowseKeyFile()
         this,
         tr("Selecionar Arquivo Chave"),
         QDir::homePath(),
-        tr("Arquivos chave (*.key *.keyx);;Todos os arquivos (*)")
+        tr("Todos os arquivos (*);;"
+           "Arquivos chave KeePass (*.key *.keyx);;"
+           "Imagens (*.png *.jpg *.jpeg *.bmp *.gif *.svg);;"
+           "Documentos (*.pdf *.txt *.doc *.docx *.odt);;"
+           "Planilhas (*.xls *.xlsx *.ods *.csv);;"
+           "Binários / certificados (*.bin *.dat *.p12 *.pfx *.pem *.crt)")
     );
     if (!path.isEmpty()) {
         m_keyFileEdit->setText(path);
