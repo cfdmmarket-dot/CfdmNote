@@ -56,6 +56,16 @@ bool MainDatabaseManager::createIfNeeded()
     dev->setName("Dev");
     dev->setParent(root);
 
+    // Lixeira — criada explicitamente para aparecer na árvore de grupos
+    auto* recycleBin = new Group();
+    recycleBin->setUuid(QUuid::createUuid());
+    recycleBin->setName("Lixeira");
+    recycleBin->setIcon(43);  // Group::RecycleBinIconNumber
+    recycleBin->setSearchingEnabled(Group::Disable);
+    recycleBin->setAutoTypeEnabled(Group::Disable);
+    recycleBin->setParent(root);
+    db->metadata()->setRecycleBin(recycleBin);
+
     // Chave vazia — nenhuma senha mestra
     auto key = QSharedPointer<CompositeKey>::create();
 
