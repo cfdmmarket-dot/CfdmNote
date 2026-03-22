@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFont>
 #include <QCoreApplication>
+#include <QSettings>
 
 #include "core/Database.h"
 #include "keys/CompositeKey.h"
@@ -16,6 +17,7 @@
 #include "gui/MainWindow.h"
 #include "gui/DatabaseWidget.h"
 #include "gui/DatabaseTabWidget.h"
+#include "gui/AppLockDialog.h"
 
 VaultUnlockDialog::VaultUnlockDialog(const QString& vaultPath,
                                       MainWindow* mainWindow,
@@ -213,5 +215,11 @@ bool VaultUnlockDialog::injectDatabase(QSharedPointer<Database> db)
     if (!tabWidget) return false;
     auto* dbWidget = new DatabaseWidget(db, tabWidget);
     tabWidget->addDatabaseTab(dbWidget);
+
+    // Salva caminho do último cofre aberto para auto-abrir no próximo login
+    QSettings s(AppLockDialog::configPath(), QSettings::IniFormat);
+    s.setValue("vault/lastPath", m_vaultPath);
+    s.sync();
+
     return true;
 }

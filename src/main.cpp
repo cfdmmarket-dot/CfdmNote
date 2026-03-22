@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <QFileDialog>
 #include <QDir>
+#include <QSettings>
 
 // Motor interno do CfdmNote
 #include "gui/Application.h"
@@ -21,6 +22,7 @@
 #include "gui/DatabaseWidget.h"
 #include "gui/DatabaseTabWidget.h"
 #include "core/Bootstrap.h"
+#include "core/Config.h"
 #include "core/Entry.h"
 
 // Nossas adições
@@ -31,7 +33,7 @@
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.0.7";
+static const QString APP_VERSION = "1.0.8";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -67,6 +69,14 @@ static void patchWelcomeWidget(QWidget* mainWindow, const QString& iconPath)
             iconLabel->setPixmap(QPixmap(iconPath).scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
     }
+
+    // Oculta lista de bancos recentes (gerenciada pelo CfdmNote)
+    auto* recentList = findWidgetByName(mainWindow, "recentListWidget");
+    if (recentList) recentList->setVisible(false);
+
+    // Oculta labels relacionados à lista recente
+    auto* recentLabel = findWidgetByName(mainWindow, "recentDatabasesLabel");
+    if (recentLabel) recentLabel->setVisible(false);
 }
 
 /**
@@ -209,6 +219,30 @@ int main(int argc, char* argv[])
     );
     actOpenVault->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O));
     QObject::connect(actOpenVault, &QAction::triggered, [&mainWindow]() {
+        // Usa o último cofre se existir, senão abre o seletor de arquivo
+        QSettings s(AppLockDialog::configPath(), QSettings::IniFormat);
+        QString path = s.value("vault/lastPath").toString();
+
+        if (path.isEmpty() || !QFile::exists(path)) {
+            path = QFileDialog::getOpenFileName(
+                &mainWindow,
+                QObject::tr("Abrir Cofre CfdmNote"),
+                QDir::homePath(),
+                QObject::tr("Cofre CfdmNote (*.kdbx)")
+            );
+        }
+        if (!path.isEmpty()) {
+            VaultUnlockDialog dlg(path, &mainWindow, &mainWindow);
+            dlg.exec();
+        }
+    });
+
+    // Abrir cofre diferente (sempre mostra seletor de arquivo)
+    QAction* actOpenOtherVault = cfdmMenu->addAction(
+        QIcon::fromTheme("document-open"),
+        QObject::tr("Abrir &outro cofre...")
+    );
+    QObject::connect(actOpenOtherVault, &QAction::triggered, [&mainWindow]() {
         const QString path = QFileDialog::getOpenFileName(
             &mainWindow,
             QObject::tr("Abrir Cofre CfdmNote"),
@@ -261,12 +295,18 @@ int main(int argc, char* argv[])
     QAction* before = mbActions.isEmpty() ? nullptr : mbActions.last();
     mainWindow.menuBar()->insertMenu(before, cfdmMenu);
 
+    // ── Desabilita auto-open do KeePassXC (usamos o nosso próprio) ──────────
+    config()->set(Config::OpenPreviousDatabasesOnStartup, false);
+
     mainWindow.show();
 
-    // ── Abre banco principal automático (cofre sempre aberto) ─────────────────
-    QTimer::singleShot(200, &mainWindow, [&mainWindow]() {
-        if (!MainDatabaseManager::openInMainWindow(&mainWindow)) {
-            qWarning() << "CfdmNote: falha ao abrir banco principal";
+    // ── Auto-abre o último cofre usado (via VaultUnlockDialog do CfdmNote) ──
+    QTimer::singleShot(150, &mainWindow, [&mainWindow]() {
+        QSettings s(AppLockDialog::configPath(), QSettings::IniFormat);
+        const QString lastVault = s.value("vault/lastPath").toString();
+        if (!lastVault.isEmpty() && QFile::exists(lastVault)) {
+            VaultUnlockDialog dlg(lastVault, &mainWindow, &mainWindow);
+            dlg.exec();
         }
     });
 
