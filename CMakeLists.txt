@@ -46,6 +46,7 @@ set(CFDMNOTE_SRCS
     src/gui/AppLockDialog.cpp
     src/gui/SecurityQuestionsDialog.cpp
     src/gui/VaultDialog.cpp
+    src/gui/VaultUnlockDialog.cpp
     src/gui/NoteEditorWidget.cpp
     src/notes/NoteManager.cpp
     src/db/MainDatabaseManager.cpp

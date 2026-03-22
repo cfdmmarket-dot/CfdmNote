@@ -27,10 +27,11 @@
 #include "gui/AppLockDialog.h"
 #include "gui/NoteEditorWidget.h"
 #include "gui/VaultDialog.h"
+#include "gui/VaultUnlockDialog.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.0.5";
+static const QString APP_VERSION = "1.0.6";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -214,8 +215,10 @@ int main(int argc, char* argv[])
             QDir::homePath(),
             QObject::tr("Cofre CfdmNote (*.kdbx)")
         );
-        if (!path.isEmpty())
-            mainWindow.openDatabase(path);
+        if (!path.isEmpty()) {
+            VaultUnlockDialog dlg(path, &mainWindow, &mainWindow);
+            dlg.exec();
+        }
     });
 
     // Criar cofre criptografado
