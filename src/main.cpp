@@ -1,37 +1,109 @@
 /*
- * CfdmNote — fork do KeePassXC com notas Markdown integradas
- * Baseado em: third_party/keepassxc/src/main.cpp
+ * CfdmNote — KeePassXC + notas Markdown integradas
+ *
+ * Estratégia: usa Application e MainWindow do KeePassXC sem modificação.
+ * Adiciona painel de notas como QDockWidget e menu CfdmNote.
+ * Interface original do KeePassXC preservada 100%.
  */
 
-#include <QApplication>
-#include <QCommandLineParser>
+#include <QFile>
+#include <QDockWidget>
+#include <QAction>
+#include <QMenuBar>
+#include <QMenu>
+#include <QMessageBox>
 
-#include "gui/KpsMainWindow.h"
-#include "core/Config.h"
+// KeePassXC — sem modificação
+#include "gui/Application.h"
+#include "gui/MainWindow.h"
+#include "core/Bootstrap.h"
+
+// Nossas adições
+#include "gui/NoteEditorWidget.h"
+#include "gui/VaultDialog.h"
 
 int main(int argc, char* argv[])
 {
-    QApplication app(argc, argv);
+    // Bootstrap do KeePassXC (crypto, config, recursos, traduções, etc.)
+    Bootstrap::bootstrap(argc, argv);
 
+    Application app(argc, argv);
     app.setApplicationName("CfdmNote");
+    app.setApplicationDisplayName("CfdmNote");
     app.setApplicationVersion("1.0.0");
-    app.setOrganizationName("CfdmNote");
-    app.setOrganizationDomain("cfdmnote.app");
 
-    QCommandLineParser parser;
-    parser.setApplicationDescription("Gerenciador de senhas com notas Markdown integradas");
-    parser.addHelpOption();
-    parser.addVersionOption();
-    parser.addPositionalArgument("banco", "Arquivo .ksdb para abrir (opcional)", "[banco]");
-    parser.process(app);
+    // ── Janela principal do KeePassXC (interface original, sem alteração) ────
+    MainWindow mainWindow;
 
-    KpsMainWindow window;
-    window.show();
+    // ── Painel de Notas Markdown (dock — não altera o layout existente) ──────
+    auto* noteDock = new QDockWidget(QObject::tr("Notas"), &mainWindow);
+    noteDock->setObjectName("CfdmNotesDock");
+    noteDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
+    noteDock->setFeatures(QDockWidget::DockWidgetMovable   |
+                          QDockWidget::DockWidgetFloatable |
+                          QDockWidget::DockWidgetClosable);
+    auto* noteEditor = new NoteEditorWidget(noteDock);
+    noteDock->setWidget(noteEditor);
+    mainWindow.addDockWidget(Qt::RightDockWidgetArea, noteDock);
 
-    // Abre arquivo passado como argumento, se houver
-    const QStringList args = parser.positionalArguments();
-    if (!args.isEmpty()) {
-        window.openDatabase(args.first());
+    // ── Menu CfdmNote (inserido no menubar do KeePassXC) ─────────────────────
+    QMenu* cfdmMenu = new QMenu(QObject::tr("&CfdmNote"), &mainWindow);
+
+    // Mostrar/ocultar painel de notas
+    QAction* actNotes = cfdmMenu->addAction(QObject::tr("Painel de &Notas"));
+    actNotes->setCheckable(true);
+    actNotes->setChecked(true);
+    actNotes->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_F9));
+    QObject::connect(actNotes, &QAction::toggled, noteDock, &QDockWidget::setVisible);
+
+    cfdmMenu->addSeparator();
+
+    // Criar cofre criptografado
+    QAction* actVault = cfdmMenu->addAction(
+        QIcon::fromTheme("security-high"),
+        QObject::tr("Criar &Cofre Criptografado...")
+    );
+    QObject::connect(actVault, &QAction::triggered, [&mainWindow]() {
+        VaultDialog dlg(&mainWindow);
+        dlg.exec();
+    });
+
+    cfdmMenu->addSeparator();
+
+    // Sobre
+    QObject::connect(
+        cfdmMenu->addAction(QObject::tr("Sobre &CfdmNote")),
+        &QAction::triggered,
+        [&mainWindow]() {
+            QMessageBox::about(&mainWindow,
+                QObject::tr("Sobre CfdmNote"),
+                QObject::tr(
+                    "<b>CfdmNote v1.0</b><br><br>"
+                    "KeePassXC com notas Markdown integradas.<br><br>"
+                    "<b>Extras sobre o KeePassXC:</b><br>"
+                    "&#8226; Notas Markdown vinculadas a entradas<br>"
+                    "&#8226; [[wiki-links]] entre notas<br>"
+                    "&#8226; Grafo de conhecimento<br>"
+                    "&#8226; Banco nativo .ksdb (SQLite + FTS5)<br>"
+                    "&#8226; Cofre criptografado opcional (.kdbx)"
+                )
+            );
+        }
+    );
+
+    // Insere o menu antes do último (Ajuda)
+    QList<QAction*> mbActions = mainWindow.menuBar()->actions();
+    QAction* before = mbActions.isEmpty() ? nullptr : mbActions.last();
+    mainWindow.menuBar()->insertMenu(before, cfdmMenu);
+
+    mainWindow.show();
+
+    // Abre arquivo passado como argumento
+    const QStringList cliArgs = app.arguments();
+    if (cliArgs.size() > 1) {
+        const QString path = cliArgs.last();
+        if (QFile::exists(path))
+            mainWindow.openDatabase(path);
     }
 
     return app.exec();
