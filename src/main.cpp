@@ -31,7 +31,7 @@
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.0.6";
+static const QString APP_VERSION = "1.0.7";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
