@@ -26,6 +26,42 @@ static const QString APP_NAME    = "CfdmNote";
 static const QString APP_VERSION = "1.0.1";
 
 /**
+ * Percorre todos os widgets filhos de root procurando por objectName == name.
+ */
+static QWidget* findWidgetByName(QWidget* root, const QString& name)
+{
+    if (!root) return nullptr;
+    for (QObject* child : root->children()) {
+        auto* w = qobject_cast<QWidget*>(child);
+        if (!w) continue;
+        if (w->objectName() == name) return w;
+        QWidget* found = findWidgetByName(w, name);
+        if (found) return found;
+    }
+    return nullptr;
+}
+
+/**
+ * Substitui os textos e ícone do WelcomeWidget pelas versões do CfdmNote.
+ */
+static void patchWelcomeWidget(QWidget* mainWindow, const QString& iconPath)
+{
+    // Label de boas-vindas
+    auto* welcomeLabel = qobject_cast<QLabel*>(findWidgetByName(mainWindow, "welcomeLabel"));
+    if (welcomeLabel) {
+        welcomeLabel->setText(QString("Bem-vindo ao %1 %2").arg(APP_NAME, APP_VERSION));
+    }
+
+    // Ícone no painel de boas-vindas
+    if (QFile::exists(iconPath)) {
+        auto* iconLabel = qobject_cast<QLabel*>(findWidgetByName(mainWindow, "iconLabel"));
+        if (iconLabel) {
+            iconLabel->setPixmap(QPixmap(iconPath).scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        }
+    }
+}
+
+/**
  * TitleFilter — intercepta mudanças de título na MainWindow
  * e substitui "KeePassXC" por "CfdmNote" automaticamente.
  * Cobre todos os casos: janela vazia, banco aberto, banco modificado.
@@ -63,24 +99,31 @@ int main(int argc, char* argv[])
     app.setApplicationDisplayName(APP_NAME);
     app.setApplicationVersion(APP_VERSION);
 
-    // ── Ícone do CfdmNote ─────────────────────────────────────────────────────
+    // ── Ícone do CfdmNote (substitui o ícone do KeePassXC em toda a app) ──────
     const QString iconPath = QString("%1/../resources/icons/cfdmnote_128.png")
                              .arg(app.applicationDirPath());
-    if (QFile::exists(iconPath))
-        app.setWindowIcon(QIcon(iconPath));
+    const QIcon cfdmIcon = QFile::exists(iconPath)
+                           ? QIcon(iconPath)
+                           : QIcon::fromTheme("dialog-password");
+    app.setWindowIcon(cfdmIcon);
 
     // ── Janela principal do CfdmNote ──────────────────────────────────────────
     MainWindow mainWindow;
+    mainWindow.setWindowIcon(cfdmIcon);
 
     // Instala filtro de título (substitui "KeePassXC" → "CfdmNote")
     auto* titleFilter = new TitleFilter(&mainWindow);
     mainWindow.installEventFilter(titleFilter);
 
-    // Força o título correto após a janela inicializar
-    QTimer::singleShot(0, &mainWindow, [&mainWindow]() {
+    // Força título e patches visuais após a janela inicializar
+    QTimer::singleShot(0, &mainWindow, [&mainWindow, &iconPath]() {
+        // Título
         QString t = mainWindow.windowTitle();
         t.replace("KeePassXC", APP_NAME);
         mainWindow.setWindowTitle(t.isEmpty() ? APP_NAME : t);
+
+        // WelcomeWidget: texto de boas-vindas + ícone
+        patchWelcomeWidget(&mainWindow, iconPath);
     });
 
     // ── Painel de Notas Markdown (dock lateral) ───────────────────────────────
