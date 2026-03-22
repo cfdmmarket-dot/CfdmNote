@@ -33,7 +33,7 @@
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.0.8";
+static const QString APP_VERSION = "1.0.9";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -300,14 +300,10 @@ int main(int argc, char* argv[])
 
     mainWindow.show();
 
-    // ── Auto-abre o último cofre usado (via VaultUnlockDialog do CfdmNote) ──
-    QTimer::singleShot(150, &mainWindow, [&mainWindow]() {
-        QSettings s(AppLockDialog::configPath(), QSettings::IniFormat);
-        const QString lastVault = s.value("vault/lastPath").toString();
-        if (!lastVault.isEmpty() && QFile::exists(lastVault)) {
-            VaultUnlockDialog dlg(lastVault, &mainWindow, &mainWindow);
-            dlg.exec();
-        }
+    // ── Abre banco principal (sem senha) → substitui a tela de boas-vindas ──
+    // O cofre criptografado só abre quando invocado pelo menu CfdmNote
+    QTimer::singleShot(100, &mainWindow, [&mainWindow]() {
+        MainDatabaseManager::openInMainWindow(&mainWindow);
     });
 
     // Abre arquivo passado como argumento
