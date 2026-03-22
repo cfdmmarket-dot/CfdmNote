@@ -3,6 +3,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QDebug>
 
 #include "core/Database.h"
@@ -25,7 +26,10 @@ QString MainDatabaseManager::defaultDatabasePath()
 bool MainDatabaseManager::createIfNeeded()
 {
     const QString path = defaultDatabasePath();
-    if (QFile::exists(path)) return true;
+    if (QFile::exists(path) && QFileInfo(path).size() > 0) return true;
+
+    // Remove arquivo corrompido/vazio se existir
+    if (QFile::exists(path)) QFile::remove(path);
 
     // Cria banco com CompositeKey vazia (sem senha mestra)
     auto db = QSharedPointer<Database>::create();
