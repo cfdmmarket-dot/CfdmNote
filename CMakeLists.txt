@@ -47,6 +47,7 @@ set(CFDMNOTE_SRCS
     src/gui/VaultDialog.cpp
     src/gui/NoteEditorWidget.cpp
     src/notes/NoteManager.cpp
+    src/db/MainDatabaseManager.cpp
 )
 
 add_executable(cfdmnote ${CFDMNOTE_SRCS})

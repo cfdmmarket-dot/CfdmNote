@@ -12,6 +12,8 @@
 #include <QIcon>
 #include <QPixmap>
 #include <QTimer>
+#include <QFileDialog>
+#include <QDir>
 
 // Motor interno do CfdmNote
 #include "gui/Application.h"
@@ -25,9 +27,10 @@
 #include "gui/AppLockDialog.h"
 #include "gui/NoteEditorWidget.h"
 #include "gui/VaultDialog.h"
+#include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.0.3";
+static const QString APP_VERSION = "1.0.4";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -198,6 +201,23 @@ int main(int argc, char* argv[])
 
     cfdmMenu->addSeparator();
 
+    // Abrir cofre criptografado (.kdbx)
+    QAction* actOpenVault = cfdmMenu->addAction(
+        QIcon::fromTheme("document-open"),
+        QObject::tr("&Abrir Cofre...")
+    );
+    actOpenVault->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O));
+    QObject::connect(actOpenVault, &QAction::triggered, [&mainWindow]() {
+        const QString path = QFileDialog::getOpenFileName(
+            &mainWindow,
+            QObject::tr("Abrir Cofre CfdmNote"),
+            QDir::homePath(),
+            QObject::tr("Cofre CfdmNote (*.kdbx)")
+        );
+        if (!path.isEmpty())
+            mainWindow.openDatabase(path);
+    });
+
     // Criar cofre criptografado
     QAction* actVault = cfdmMenu->addAction(
         QIcon::fromTheme("security-high"),
@@ -239,6 +259,13 @@ int main(int argc, char* argv[])
     mainWindow.menuBar()->insertMenu(before, cfdmMenu);
 
     mainWindow.show();
+
+    // ── Abre banco principal automático (cofre sempre aberto) ─────────────────
+    QTimer::singleShot(200, &mainWindow, [&mainWindow]() {
+        if (!MainDatabaseManager::openInMainWindow(&mainWindow)) {
+            qWarning() << "CfdmNote: falha ao abrir banco principal";
+        }
+    });
 
     // Abre arquivo passado como argumento
     const QStringList cliArgs = app.arguments();
