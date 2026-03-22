@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QUuid>
 #include <QDebug>
 
 #include "core/Database.h"
@@ -41,14 +42,17 @@ bool MainDatabaseManager::createIfNeeded()
     root->setName("CfdmNote");
 
     auto* personal = new Group();
+    personal->setUuid(QUuid::createUuid());
     personal->setName("Pessoal");
     personal->setParent(root);
 
     auto* work = new Group();
+    work->setUuid(QUuid::createUuid());
     work->setName("Trabalho");
     work->setParent(root);
 
     auto* dev = new Group();
+    dev->setUuid(QUuid::createUuid());
     dev->setName("Dev");
     dev->setParent(root);
 
