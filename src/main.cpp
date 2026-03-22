@@ -22,11 +22,12 @@
 #include "core/Entry.h"
 
 // Nossas adições
+#include "gui/AppLockDialog.h"
 #include "gui/NoteEditorWidget.h"
 #include "gui/VaultDialog.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.0.2";
+static const QString APP_VERSION = "1.0.3";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -136,6 +137,13 @@ int main(int argc, char* argv[])
     app.setApplicationName(APP_NAME);
     app.setApplicationDisplayName(APP_NAME);
     app.setApplicationVersion(APP_VERSION);
+
+    // ── Tela de login do CfdmNote (antes de qualquer janela) ─────────────────
+    {
+        AppLockDialog lockDlg;
+        if (lockDlg.exec() != QDialog::Accepted)
+            return 0;  // usuário fechou o diálogo — encerra o app
+    }
 
     // ── Ícone do CfdmNote (substitui o ícone do KeePassXC em toda a app) ──────
     const QString iconPath = QString("%1/../resources/icons/cfdmnote_128.png")

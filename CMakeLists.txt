@@ -43,6 +43,7 @@ add_subdirectory(third_party/cmark-gfm EXCLUDE_FROM_ALL)
 # ─── CfdmNote — nosso executável ─────────────────────────────────────────────
 set(CFDMNOTE_SRCS
     src/main.cpp
+    src/gui/AppLockDialog.cpp
     src/gui/VaultDialog.cpp
     src/gui/NoteEditorWidget.cpp
     src/notes/NoteManager.cpp
