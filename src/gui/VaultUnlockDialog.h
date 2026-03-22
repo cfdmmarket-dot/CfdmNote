@@ -38,7 +38,6 @@ private:
     QString      m_vaultPath;
     MainWindow*  m_mainWindow  = nullptr;
 
-    QLabel*      m_pathLabel    = nullptr;
     QLineEdit*   m_passEdit     = nullptr;
     QPushButton* m_btnToggle    = nullptr;
 

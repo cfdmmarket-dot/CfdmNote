@@ -7,6 +7,7 @@
 #include <QFileDialog>
 #include <QDir>
 #include <QFont>
+#include <QCoreApplication>
 
 #include "core/Database.h"
 #include "keys/CompositeKey.h"
@@ -36,21 +37,12 @@ void VaultUnlockDialog::setupUi()
     layout->setSpacing(10);
     layout->setContentsMargins(28, 24, 28, 24);
 
-    // ── Título ────────────────────────────────────────────────────────────
-    auto* titleLabel = new QLabel(tr("<b>Abrir Cofre Criptografado</b>"));
-    titleLabel->setAlignment(Qt::AlignCenter);
-    QFont f = titleLabel->font();
-    f.setPointSize(13);
-    titleLabel->setFont(f);
-    layout->addWidget(titleLabel);
-
-    // ── Nome do arquivo ───────────────────────────────────────────────────
-    m_pathLabel = new QLabel(
-        QString("<span style='color:gray; font-size:11px;'>%1</span>")
-        .arg(QFileInfo(m_vaultPath).fileName()));
-    m_pathLabel->setAlignment(Qt::AlignCenter);
-    m_pathLabel->setWordWrap(true);
-    layout->addWidget(m_pathLabel);
+    // ── Versão (esquerda, fonte pequena) ─────────────────────────────────
+    auto* versionLabel = new QLabel(
+        QString("CfdmNote - v%1").arg(QCoreApplication::applicationVersion()));
+    versionLabel->setStyleSheet("color: gray; font-size: 10px;");
+    versionLabel->setAlignment(Qt::AlignLeft);
+    layout->addWidget(versionLabel);
 
     layout->addSpacing(6);
 
