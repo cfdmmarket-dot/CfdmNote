@@ -12,8 +12,9 @@
  * Tela de login do CfdmNote — aparece antes da janela principal.
  * Senha separada do cofre .kdbx (que tem sua própria senha mestra).
  *
- * Primeira vez: pede para criar a senha do app.
+ * Primeira vez: pede para criar a senha do app + configura perguntas de segurança.
  * Próximas vezes: pede a senha para desbloquear.
+ *                 Link "Esqueceu a senha?" abre recuperação por perguntas secretas.
  *
  * Senha armazenada em hash (SHA-256) no arquivo de configuração do CfdmNote.
  */
@@ -37,6 +38,7 @@ public:
 private slots:
     void onUnlock();
     void onToggleVisibility();
+    void onForgotPassword();
 
 private:
     void setupUi(bool firstRun);
@@ -49,6 +51,7 @@ private:
     QLineEdit*   m_confirmEdit   = nullptr;   // só na primeira vez
     QPushButton* m_btnToggle     = nullptr;
     QPushButton* m_btnUnlock     = nullptr;
+    QPushButton* m_btnForgot     = nullptr;   // link "Esqueceu a senha?"
     QLabel*      m_errorLabel    = nullptr;
     bool         m_firstRun      = false;
 };

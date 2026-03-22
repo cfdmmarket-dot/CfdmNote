@@ -1,4 +1,5 @@
 #include "AppLockDialog.h"
+#include "SecurityQuestionsDialog.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -7,10 +8,14 @@
 #include <QSettings>
 #include <QPixmap>
 #include <QFile>
+#include <QDir>
 #include <QKeyEvent>
 #include <QCoreApplication>
+#include <QMessageBox>
 
-static const QString SETTINGS_KEY = "app/passwordHash";
+static const QString SETTINGS_KEY      = "app/passwordHash";
+static const QString SETTINGS_ATTEMPTS = "app/failedAttempts";
+static const int     MAX_ATTEMPTS      = 10;
 
 AppLockDialog::AppLockDialog(QWidget* parent)
     : QDialog(parent)
@@ -34,7 +39,6 @@ void AppLockDialog::setupUi(bool firstRun)
     m_logoLabel->setAlignment(Qt::AlignCenter);
     const QString iconPath = QStandardPaths::locate(
         QStandardPaths::AppDataLocation, "icons/cfdmnote_128.png");
-    // Tenta caminho relativo ao binário
     const QString altPath = QCoreApplication::applicationDirPath()
                             + "/../resources/icons/cfdmnote_128.png";
     QPixmap logo;
@@ -62,6 +66,36 @@ void AppLockDialog::setupUi(bool firstRun)
     m_subtitleLabel->setStyleSheet("color: gray; font-size: 12px;");
     m_subtitleLabel->setWordWrap(true);
     layout->addWidget(m_subtitleLabel);
+
+    // ── Aviso de tentativas (modo login) ──────────────────────────────────
+    if (!firstRun) {
+        QSettings s(configPath(), QSettings::IniFormat);
+        const int attempts = s.value(SETTINGS_ATTEMPTS, 0).toInt();
+        if (attempts > 0) {
+            const int remaining = MAX_ATTEMPTS - attempts;
+            auto* warnLabel = new QLabel(
+                tr("<b style='color:#e05050;'>Atenção:</b> %1 tentativa(s) incorreta(s). "
+                   "Após %2 tentativa(s) incorreta(s), todos os dados serão apagados.")
+                .arg(attempts).arg(MAX_ATTEMPTS)
+            );
+            warnLabel->setWordWrap(true);
+            warnLabel->setAlignment(Qt::AlignCenter);
+            warnLabel->setStyleSheet("font-size: 11px; background: #fff3cd; "
+                                     "border: 1px solid #ffc107; border-radius: 4px; padding: 6px;");
+            layout->addWidget(warnLabel);
+
+            if (remaining <= 3) {
+                auto* dangerLabel = new QLabel(
+                    tr("<b style='color:#c0392b;'>AVISO FINAL: %1 tentativa(s) restante(s) "
+                       "antes do apagamento total!</b>").arg(remaining)
+                );
+                dangerLabel->setWordWrap(true);
+                dangerLabel->setAlignment(Qt::AlignCenter);
+                dangerLabel->setStyleSheet("font-size: 11px; color: #c0392b;");
+                layout->addWidget(dangerLabel);
+            }
+        }
+    }
 
     layout->addSpacing(4);
 
@@ -111,6 +145,20 @@ void AppLockDialog::setupUi(bool firstRun)
     connect(m_btnUnlock, &QPushButton::clicked, this, &AppLockDialog::onUnlock);
     layout->addWidget(m_btnUnlock);
 
+    // ── Link "Esqueceu a senha?" (só no login) ────────────────────────────
+    if (!firstRun && SecurityQuestionsDialog::hasRecoverySetup()) {
+        m_btnForgot = new QPushButton(tr("Esqueceu a senha?"));
+        m_btnForgot->setFlat(true);
+        m_btnForgot->setFixedHeight(24);
+        m_btnForgot->setStyleSheet(
+            "QPushButton { color: #2a5caa; border: none; font-size: 12px; "
+            "text-decoration: underline; }"
+            "QPushButton:hover { color: #3a6cba; }"
+        );
+        connect(m_btnForgot, &QPushButton::clicked, this, &AppLockDialog::onForgotPassword);
+        layout->addWidget(m_btnForgot, 0, Qt::AlignCenter);
+    }
+
     m_passwordEdit->setFocus();
 }
 
@@ -136,13 +184,58 @@ void AppLockDialog::onUnlock()
             return;
         }
         savePassword(password);
+
+        // Abre configuração de perguntas de segurança
+        SecurityQuestionsDialog setupDlg(SecurityQuestionsDialog::Mode::Setup, this);
+        setupDlg.exec();  // pular é permitido — accept ou reject ambos ok
+
         accept();
     } else {
         // Verificando senha existente
         if (checkPassword(password)) {
+            // Zera contador de tentativas
+            QSettings s(configPath(), QSettings::IniFormat);
+            s.setValue(SETTINGS_ATTEMPTS, 0);
+            s.sync();
             accept();
         } else {
-            m_errorLabel->setText(tr("Senha incorreta. Tente novamente."));
+            // Incrementa contador
+            QSettings s(configPath(), QSettings::IniFormat);
+            int attempts = s.value(SETTINGS_ATTEMPTS, 0).toInt() + 1;
+            s.setValue(SETTINGS_ATTEMPTS, attempts);
+            s.sync();
+
+            const int remaining = MAX_ATTEMPTS - attempts;
+
+            if (attempts >= MAX_ATTEMPTS) {
+                // Apaga tudo
+                s.clear();
+                s.sync();
+                QFile::remove(configPath());
+
+                const QString dataPath = QStandardPaths::writableLocation(
+                    QStandardPaths::AppLocalDataLocation);
+                QDir(dataPath).removeRecursively();
+
+                QMessageBox::critical(this,
+                    tr("Dados apagados"),
+                    tr("Número máximo de tentativas atingido.\n"
+                       "Todos os dados do CfdmNote foram apagados por segurança.\n\n"
+                       "O aplicativo será encerrado."));
+                reject();
+                return;
+            }
+
+            if (remaining <= 3) {
+                m_errorLabel->setText(
+                    tr("Senha incorreta! <b>%1 tentativa(s) restante(s)</b> antes do apagamento total.")
+                    .arg(remaining));
+            } else {
+                m_errorLabel->setText(
+                    tr("Senha incorreta. Tentativas: %1/%2.")
+                    .arg(attempts).arg(MAX_ATTEMPTS));
+            }
+
             m_passwordEdit->clear();
             m_passwordEdit->setFocus();
         }
@@ -155,6 +248,18 @@ void AppLockDialog::onToggleVisibility()
     m_passwordEdit->setEchoMode(show ? QLineEdit::Normal : QLineEdit::Password);
     if (m_confirmEdit)
         m_confirmEdit->setEchoMode(show ? QLineEdit::Normal : QLineEdit::Password);
+}
+
+void AppLockDialog::onForgotPassword()
+{
+    SecurityQuestionsDialog recoverDlg(SecurityQuestionsDialog::Mode::Recover, this);
+    if (recoverDlg.exec() == QDialog::Accepted) {
+        // Senha redefinida com sucesso — zera tentativas e fecha login
+        QSettings s(configPath(), QSettings::IniFormat);
+        s.setValue(SETTINGS_ATTEMPTS, 0);
+        s.sync();
+        accept();
+    }
 }
 
 // ─── Estáticos ───────────────────────────────────────────────────────────────
@@ -173,7 +278,6 @@ bool AppLockDialog::isFirstRun()
 
 QString AppLockDialog::hashPassword(const QString& password)
 {
-    // SHA-256 com salt fixo do app
     const QByteArray salted = "CfdmNote::AppLock::" + password.toUtf8();
     return QCryptographicHash::hash(salted, QCryptographicHash::Sha256).toHex();
 }
