@@ -9,7 +9,7 @@
 #include <QDir>
 #include <QFile>
 
-// KeePassXC — cria banco criptografado via suas próprias classes
+// Motor de banco criptografado do CfdmNote
 #include "core/Database.h"
 #include "core/Group.h"
 #include "core/Metadata.h"
@@ -34,9 +34,9 @@ void VaultDialog::setupUi()
 
     // ── Cabeçalho ─────────────────────────────────────────────────────────
     auto* headerLabel = new QLabel(
-        tr("<b>Novo Cofre Criptografado</b><br>"
-           "<small>Cria um banco .kdbx protegido por senha mestra (AES-256 + Argon2).<br>"
-           "Compatível com KeePassXC e KeePass 2.</small>")
+        tr("<b>Novo Cofre Criptografado — CfdmNote</b><br>"
+           "<small>Cria um cofre .kdbx protegido por senha mestra (AES-256 + Argon2).<br>"
+           "Compatível com outros gerenciadores de senha no formato .kdbx.</small>")
     );
     headerLabel->setWordWrap(true);
     mainLayout->addWidget(headerLabel);
@@ -138,7 +138,7 @@ void VaultDialog::onBrowse()
         this,
         tr("Salvar cofre como"),
         QDir::homePath() + "/" + defaultName + ".kdbx",
-        tr("KeePass Database (*.kdbx)")
+        tr("Cofre CfdmNote (*.kdbx)")
     );
     if (!path.isEmpty()) {
         if (!path.endsWith(".kdbx")) path += ".kdbx";
@@ -226,7 +226,7 @@ void VaultDialog::onCreate()
 
 bool VaultDialog::createVault(const QString& filePath, const QString& password)
 {
-    // Cria banco KeePass usando as classes do KeePassXC
+    // Cria cofre criptografado usando motor interno do CfdmNote
     auto db = QSharedPointer<Database>::create();
 
     // Grupo raiz com o nome do cofre
@@ -237,7 +237,7 @@ bool VaultDialog::createVault(const QString& filePath, const QString& password)
     auto key = QSharedPointer<CompositeKey>::create();
     key->addKey(QSharedPointer<PasswordKey>::create(password));
 
-    // Argon2d KDF (padrão do KeePassXC)
+    // Argon2d KDF (padrão de segurança do CfdmNote)
     auto kdf = QSharedPointer<Argon2Kdf>::create(Argon2Kdf::Type::Argon2d);
     kdf->setRounds(8);
     kdf->setMemory(65536);   // 64 MB
@@ -246,7 +246,7 @@ bool VaultDialog::createVault(const QString& filePath, const QString& password)
     db->setKey(key);
     db->setKdf(kdf);
 
-    // Salva via Kdbx4Writer do KeePassXC (implementação concreta de KdbxWriter)
+    // Salva cofre criptografado (formato .kdbx v4)
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) return false;
 

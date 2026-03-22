@@ -1,9 +1,8 @@
 /*
- * CfdmNote — KeePassXC + notas Markdown integradas
+ * CfdmNote — Gerenciador de senhas com notas Markdown integradas
  *
- * Estratégia: usa Application e MainWindow do KeePassXC sem modificação.
+ * Interface: CfdmNote (baseada em motor open-source de gerenciamento de senhas).
  * Adiciona painel de notas como QDockWidget e menu CfdmNote.
- * Interface original do KeePassXC preservada 100%.
  */
 
 #include <QFile>
@@ -13,7 +12,7 @@
 #include <QMenu>
 #include <QMessageBox>
 
-// KeePassXC — sem modificação
+// Motor interno do CfdmNote
 #include "gui/Application.h"
 #include "gui/MainWindow.h"
 #include "core/Bootstrap.h"
@@ -26,16 +25,16 @@ int main(int argc, char* argv[])
 {
     Application app(argc, argv);
 
-    // Bootstrap do KeePassXC (crypto, config, recursos, traduções, etc.)
+    // Bootstrap do motor (crypto, config, recursos, traduções, etc.)
     Bootstrap::bootstrap();
     app.setApplicationName("CfdmNote");
     app.setApplicationDisplayName("CfdmNote");
     app.setApplicationVersion("1.0.0");
 
-    // ── Janela principal do KeePassXC (interface original, sem alteração) ────
+    // ── Janela principal do CfdmNote ─────────────────────────────────────────
     MainWindow mainWindow;
 
-    // ── Painel de Notas Markdown (dock — não altera o layout existente) ──────
+    // ── Painel de Notas Markdown (dock lateral) ───────────────────────────────
     auto* noteDock = new QDockWidget(QObject::tr("Notas"), &mainWindow);
     noteDock->setObjectName("CfdmNotesDock");
     noteDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
@@ -46,7 +45,7 @@ int main(int argc, char* argv[])
     noteDock->setWidget(noteEditor);
     mainWindow.addDockWidget(Qt::RightDockWidgetArea, noteDock);
 
-    // ── Menu CfdmNote (inserido no menubar do KeePassXC) ─────────────────────
+    // ── Menu CfdmNote ─────────────────────────────────────────────────────────
     QMenu* cfdmMenu = new QMenu(QObject::tr("&CfdmNote"), &mainWindow);
 
     // Mostrar/ocultar painel de notas
@@ -79,13 +78,15 @@ int main(int argc, char* argv[])
                 QObject::tr("Sobre CfdmNote"),
                 QObject::tr(
                     "<b>CfdmNote v1.0</b><br><br>"
-                    "KeePassXC com notas Markdown integradas.<br><br>"
-                    "<b>Extras sobre o KeePassXC:</b><br>"
+                    "Gerenciador de senhas com notas Markdown integradas.<br><br>"
+                    "<b>Funcionalidades:</b><br>"
+                    "&#8226; Entradas e grupos de senhas<br>"
                     "&#8226; Notas Markdown vinculadas a entradas<br>"
                     "&#8226; [[wiki-links]] entre notas<br>"
                     "&#8226; Grafo de conhecimento<br>"
                     "&#8226; Banco nativo .ksdb (SQLite + FTS5)<br>"
-                    "&#8226; Cofre criptografado opcional (.kdbx)"
+                    "&#8226; Cofre criptografado opcional (.kdbx)<br>"
+                    "&#8226; Auto-Type"
                 )
             );
         }

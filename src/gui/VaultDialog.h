@@ -11,11 +11,10 @@
  * VaultDialog
  *
  * Janela para criar um cofre criptografado (.kdbx) dentro do CfdmNote.
- * Usa o fluxo de criação de banco do KeePassXC (DatabaseOpenWidget/DatabaseSettingsWidget).
  *
- * O cofre aparece como banco normal do KeePassXC na interface — protegido por senha mestra.
+ * O cofre é protegido por senha mestra com AES-256 + Argon2.
  * Entradas no cofre ficam no .kdbx (criptografado).
- * Entradas fora do cofre ficam no .ksdb (SQLite, sem criptografia).
+ * Entradas fora do cofre ficam no .ksdb (SQLite, banco principal do CfdmNote).
  */
 class VaultDialog : public QDialog
 {
