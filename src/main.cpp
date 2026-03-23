@@ -26,6 +26,8 @@
 #include <QPlainTextEdit>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QUrl>
+#include <QDesktopServices>
 
 #include "core/Metadata.h"
 #include "core/EntryAttributes.h"
@@ -47,10 +49,12 @@
 #include "gui/CsvImportDialog.h"
 #include "gui/LinksPanelWidget.h"
 #include "gui/BackupDialog.h"
+#include "gui/ShareDialog.h"
+#include "gui/ExportNoteDialog.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.3.0";
+static const QString APP_VERSION = "1.4.0";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -442,6 +446,36 @@ int main(int argc, char* argv[])
         if (ntw) ntw->setCurrentIndex(ntw->currentIndex() == 1 ? 0 : 1);
     });
 
+    // Pesquisar na web com IA (001) — submenu de mecanismos de busca
+    QMenu* searchMenu = cfdmMenu->addMenu(
+        QIcon::fromTheme("edit-find"), QObject::tr("Pesquisar na &web..."));
+
+    struct SearchEngine { QString name; QString urlTemplate; };
+    const QList<SearchEngine> searchEngines = {
+        { QObject::tr("Google"),       "https://www.google.com/search?q=%1" },
+        { QObject::tr("DuckDuckGo"),   "https://duckduckgo.com/?q=%1" },
+        { QObject::tr("Perplexity AI"),"https://www.perplexity.ai/search?q=%1" },
+        { QObject::tr("ChatGPT"),      "https://chatgpt.com/?q=%1" },
+    };
+    for (const auto& eng : searchEngines) {
+        const QString urlTpl = eng.urlTemplate;
+        QObject::connect(
+            searchMenu->addAction(eng.name),
+            &QAction::triggered,
+            [&mainWindow, urlTpl]() {
+                auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+                if (!dbTabWidget || !dbTabWidget->currentDatabaseWidget()) return;
+                Entry* entry = dbTabWidget->currentDatabaseWidget()->currentSelectedEntry();
+                if (!entry) {
+                    QMessageBox::information(&mainWindow, QObject::tr("Pesquisar na web"),
+                        QObject::tr("Selecione uma entrada primeiro."));
+                    return;
+                }
+                const QString query = QUrl::toPercentEncoding(entry->title());
+                QDesktopServices::openUrl(QUrl(urlTpl.arg(query)));
+            });
+    }
+
     cfdmMenu->addSeparator();
 
     // Abrir cofre criptografado (.kdbx)
@@ -575,6 +609,41 @@ int main(int argc, char* argv[])
             saveErr.isEmpty()
                 ? QObject::tr("%1 arquivo(s) importado(s) com sucesso.").arg(count)
                 : QObject::tr("%1 arquivo(s) importado(s). Aviso: %2").arg(count).arg(saveErr));
+    });
+
+    // Exportar nota criptografada (008)
+    QAction* actExportNote = cfdmMenu->addAction(
+        QIcon::fromTheme("document-send"),
+        QObject::tr("&Exportar nota...")
+    );
+    QObject::connect(actExportNote, &QAction::triggered, [&mainWindow]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTabWidget || !dbTabWidget->currentDatabaseWidget()) return;
+        auto* dbWidget = dbTabWidget->currentDatabaseWidget();
+        Entry* entry = dbWidget->currentSelectedEntry();
+        if (!entry) {
+            QMessageBox::information(&mainWindow, QObject::tr("Exportar nota"),
+                QObject::tr("Selecione uma entrada primeiro."));
+            return;
+        }
+        ExportNoteDialog::exportNote(entry, dbWidget->database(), &mainWindow);
+    });
+
+    // Compartilhar entrada (009)
+    QAction* actShare = cfdmMenu->addAction(
+        QIcon::fromTheme("document-share"),
+        QObject::tr("&Compartilhar entrada...")
+    );
+    QObject::connect(actShare, &QAction::triggered, [&mainWindow]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTabWidget || !dbTabWidget->currentDatabaseWidget()) return;
+        Entry* entry = dbTabWidget->currentDatabaseWidget()->currentSelectedEntry();
+        if (!entry) {
+            QMessageBox::information(&mainWindow, QObject::tr("Compartilhar"),
+                QObject::tr("Selecione uma entrada primeiro."));
+            return;
+        }
+        ShareDialog::shareEntry(entry, &mainWindow);
     });
 
     cfdmMenu->addSeparator();

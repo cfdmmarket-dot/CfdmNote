@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v1.3.0
+## Versão atual: v1.4.0
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -45,6 +45,9 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v1.3.0 — Campo "Comentário" na aba Notas: observação rápida por entrada (CfdmNote::Comment) ✓
 - [x] v1.3.0 — Importar TXT: cria entradas a partir de arquivos .txt (título = nome do arquivo) ✓
 - [x] v1.3.0 — Links: suporte a arquivos além de pastas; botão "Adicionar" com menu Pasta/Arquivo(s) ✓
+- [x] v1.4.0 — Pesquisar na web (Google/DuckDuckGo/Perplexity/ChatGPT) com título da entrada ✓
+- [x] v1.4.0 — Exportar nota criptografada: AES-256-GCM + PBKDF2-SHA256 → arquivo .cfdmnote ✓
+- [x] v1.4.0 — Compartilhar entrada via WhatsApp/Telegram/Discord/Facebook (sem senha) ✓
 
 ## Arquitetura atual
 ```
@@ -76,6 +79,9 @@ DatabaseWidget (por banco aberto)
 | Criar Cofre Criptografado... | — | VaultDialog |
 | Importar CSV... | — | CsvImportDialog (barra progresso) |
 | Importar TXT... | — | Importa .txt como entradas (título=nome do arquivo) |
+| Pesquisar na web... | — | Submenu: Google / DuckDuckGo / Perplexity / ChatGPT |
+| Exportar nota... | — | ExportNoteDialog: .txt ou .cfdmnote (AES-256-GCM) |
+| Compartilhar entrada... | — | ShareDialog: WhatsApp/Telegram/Discord/Facebook |
 | Definir ícone da entrada... | — | Ícone personalizado (PNG/GIF/etc) |
 | Sobre CfdmNote | — | Caixa sobre |
 
