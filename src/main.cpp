@@ -58,11 +58,12 @@
 #include "gui/ReminderDialog.h"
 #include "gui/ManualDialog.h"
 #include "gui/DatabaseInfoDialog.h"
+#include "gui/PowerSearchDialog.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.7.2";
+static const QString APP_VERSION = "1.8.0";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -724,6 +725,17 @@ int main(int argc, char* argv[])
             return;
         }
         ReminderDialog::editReminder(entry, dbWidget->database(), &mainWindow);
+    });
+
+    // Pesquisa Poderosa (011) — busca local + web + Google Dorking + verificar link
+    QAction* actPowerSearch = cfdmMenu->addAction(
+        QIcon::fromTheme("system-search"),
+        QObject::tr("&Pesquisa Poderosa...")
+    );
+    actPowerSearch->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F));
+    QObject::connect(actPowerSearch, &QAction::triggered, [&mainWindow]() {
+        PowerSearchDialog dlg(&mainWindow);
+        dlg.exec();
     });
 
     cfdmMenu->addSeparator();

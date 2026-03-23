@@ -55,6 +55,7 @@ set(CFDMNOTE_SRCS
     src/gui/ReminderDialog.cpp
     src/gui/ManualDialog.cpp
     src/gui/DatabaseInfoDialog.cpp
+    src/gui/PowerSearchDialog.cpp
     src/gui/NoteEditorWidget.cpp
     src/reminders/ReminderManager.cpp
     src/notes/NoteManager.cpp
