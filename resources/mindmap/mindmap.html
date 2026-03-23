@@ -103,7 +103,17 @@ function zoomIn()    { if (mind) mind.scale(mind.scaleVal * 1.5); }
 function zoomOut()   { if (mind) mind.scale(mind.scaleVal / 1.5); }
 function zoomReset() { if (mind && mind.toCenter) mind.toCenter(); }
 
-// Pan universal — funciona arrastando fundo OU qualquer nó
+// ── Detecta se elemento é nó do mapa ─────────────────────────────────────────
+function isMapNode(el) {
+  while (el && el !== document.body) {
+    var tag = el.tagName;
+    if (tag === 'ME-TPC' || tag === 'ME-PARENT' || tag === 'ME-WRAPPER') return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+// ── Pan do fundo (mousedown/mousemove no background) ──────────────────────────
 (function() {
   var panning = false, panMoved = false, sx = 0, sy = 0;
 
@@ -115,15 +125,15 @@ function zoomReset() { if (mind && mind.toCenter) mind.toCenter(); }
   document.addEventListener('mousedown', function(e) {
     if (!mind || !mind.map) return;
     if (e.button !== 0) return;
-    panning = true;
-    panMoved = false;
+    if (isMapNode(e.target)) return;  // nó: deixa o drag de nó tratar
+    panning = true; panMoved = false;
     sx = e.clientX; sy = e.clientY;
   }, true);
 
   document.addEventListener('mousemove', function(e) {
     if (!panning || !mind || !mind.map) return;
     var dx = e.clientX - sx, dy = e.clientY - sy;
-    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;  // zona morta
+    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
     sx = e.clientX; sy = e.clientY;
     panMoved = true;
     document.body.style.cursor = 'grabbing';
@@ -131,18 +141,53 @@ function zoomReset() { if (mind && mind.toCenter) mind.toCenter(); }
     var scale = mind.scaleVal || 1;
     mind.map.style.transform =
       'translate3d(' + (pos.x+dx) + 'px,' + (pos.y+dy) + 'px,0) scale(' + scale + ')';
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
   }, true);
 
   document.addEventListener('mouseup', function() {
-    panning = false;
-    document.body.style.cursor = '';
+    panning = false; document.body.style.cursor = '';
   }, true);
 
-  // Suprime o click após um pan (não dispara seleção de nó por acidente)
   document.addEventListener('click', function(e) {
     if (panMoved) { e.stopPropagation(); panMoved = false; }
+  }, true);
+})();
+
+// ── Drag de nós via pointer events sintéticos ─────────────────────────────────
+// O Mind Elixir usa pointerdown/pointermove/pointerup — simulamos a partir do mouse
+(function() {
+  var draggingNode = null;
+
+  function syntheticPointer(type, target, e) {
+    try {
+      var pe = new PointerEvent(type, {
+        bubbles: true, cancelable: true,
+        clientX: e.clientX, clientY: e.clientY,
+        pointerId: 1, pointerType: 'mouse',
+        button: e.button, buttons: e.buttons,
+        isPrimary: true
+      });
+      target.dispatchEvent(pe);
+    } catch(err) {}
+  }
+
+  document.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    var node = isMapNode(e.target);
+    if (!node) return;
+    draggingNode = node;
+    syntheticPointer('pointerdown', node, e);
+  }, true);
+
+  document.addEventListener('mousemove', function(e) {
+    if (!draggingNode) return;
+    syntheticPointer('pointermove', draggingNode, e);
+  }, true);
+
+  document.addEventListener('mouseup', function(e) {
+    if (!draggingNode) return;
+    syntheticPointer('pointerup', draggingNode, e);
+    draggingNode = null;
   }, true);
 })();
 </script>
