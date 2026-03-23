@@ -62,11 +62,16 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     auto* actExport  = bar->addAction("💾 PNG");
     bar->addSeparator();
 
+    auto* actLayoutBoth  = bar->addAction("↔ Lateral");
+    auto* actLayoutRight = bar->addAction("→ Direita");
+    auto* actLayoutLeft  = bar->addAction("← Esquerda");
+    bar->addSeparator();
+
     m_chkEntries = new QCheckBox(tr("Mostrar entradas"));
     m_chkEntries->setChecked(false);
     bar->addWidget(m_chkEntries);
 
-    auto* hint = new QLabel(tr("   Arrastar fundo = mover mapa · Arrastar nó = reposicionar · Clique = detalhes"));
+    auto* hint = new QLabel(tr("   Clique no nó = expandir/recolher filhos · Arrastar = mover"));
     hint->setStyleSheet("color:#90cdf4; font-size:11px; font-style:italic;");
     bar->addWidget(hint);
     root->addWidget(bar);
@@ -202,6 +207,16 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
         QMessageBox::information(this, tr("Exportado"), tr("Salvo em:\n%1").arg(path));
     });
 
+    connect(actLayoutBoth,  &QAction::triggered, this, [this]() {
+        m_webView->page()->runJavaScript("setLayout(2);");
+    });
+    connect(actLayoutRight, &QAction::triggered, this, [this]() {
+        m_webView->page()->runJavaScript("setLayout(1);");
+    });
+    connect(actLayoutLeft,  &QAction::triggered, this, [this]() {
+        m_webView->page()->runJavaScript("setLayout(0);");
+    });
+
     connect(m_chkEntries, &QCheckBox::toggled, this, [this]() {
         if (m_mapLoaded) injectMap();
     });
@@ -216,33 +231,80 @@ void MindMapDialog::showMap(QSharedPointer<Database> db, QWidget* parent)
 
 // ─── Construção do JSON para Mind Elixir ─────────────────────────────────────
 
-QString MindMapDialog::groupToJson(Group* g, int colorIdx) const
+// Paleta: grpBg/Fg = grupo principal, subBg/Fg = sub-grupo, entBg/Fg = entrada
+// grpBorder = contorno grupo, subBorder = contorno sub, entBorder = contorno entrada
+static const struct {
+    const char* grpBg; const char* grpFg; const char* grpBorder;
+    const char* subBg; const char* subFg; const char* subBorder;
+    const char* entBg; const char* entFg; const char* entBorder;
+} kPalette[] = {
+    { "#2b6cb0","#ffffff","#1a365d",  "#bee3f8","#1a365d","#2b6cb0",  "#ebf8ff","#2c5282","#63b3ed" }, // azul
+    { "#276749","#ffffff","#1c4532",  "#c6f6d5","#1c4532","#276749",  "#f0fff4","#22543d","#68d391" }, // verde
+    { "#553c9a","#ffffff","#322659",  "#e9d8fd","#322659","#553c9a",  "#faf5ff","#44337a","#b794f4" }, // roxo
+    { "#c05621","#ffffff","#7b341e",  "#feebc8","#7b341e","#c05621",  "#fffaf0","#7b341e","#f6ad55" }, // laranja
+    { "#285e61","#ffffff","#1d4044",  "#b2f5ea","#1d4044","#285e61",  "#e6fffa","#234e52","#4fd1c5" }, // teal
+    { "#975a16","#ffffff","#744210",  "#fefcbf","#744210","#975a16",  "#fffff0","#744210","#ecc94b" }, // amarelo
+    { "#9b2c2c","#ffffff","#63171b",  "#fed7d7","#63171b","#9b2c2c",  "#fff5f5","#742a2a","#fc8181" }, // vermelho
+    { "#434190","#ffffff","#2a4365",  "#c3dafe","#2a4365","#434190",  "#ebf4ff","#2a4365","#76e4f7" }, // índigo
+};
+static const int kPaletteSize = 8;
+
+QString MindMapDialog::groupToJson(Group* g, int colorIdx, int depth) const
 {
     if (!g) return "{}";
     if (m_db && g == m_db->metadata()->recycleBin()) return "";
 
+    const int ci = colorIdx % kPaletteSize;
+    const auto& pal = kPalette[ci];
+
     QJsonObject obj;
-    obj["id"]    = QString(g->uuid().toRfc4122().toHex());
-    obj["topic"] = g->name();
-    obj["type"]  = "group";
+    obj["id"]   = QString(g->uuid().toRfc4122().toHex());
+    obj["type"] = "group";
+
+    QJsonObject gStyle;
+    if (depth == 0) {
+        // Grupo principal: círculo/pílula sólido com contorno nítido
+        obj["topic"] = "📁 " + g->name();
+        gStyle["background"]   = pal.grpBg;
+        gStyle["color"]        = pal.grpFg;
+        gStyle["borderRadius"] = "999px";
+        gStyle["border"]       = QString("3px solid %1").arg(pal.grpBorder);
+        gStyle["fontWeight"]   = "bold";
+        gStyle["padding"]      = "6px 18px";
+    } else {
+        // Sub-grupo: pílula suave com contorno da cor do grupo pai
+        obj["topic"] = "🗂 " + g->name();
+        gStyle["background"]   = pal.subBg;
+        gStyle["color"]        = pal.subFg;
+        gStyle["borderRadius"] = "999px";
+        gStyle["border"]       = QString("2px solid %1").arg(pal.subBorder);
+        gStyle["padding"]      = "4px 14px";
+    }
+    obj["style"] = gStyle;
 
     QJsonArray children;
 
-    // Sub-grupos
     for (auto* child : g->children()) {
         if (m_db && child == m_db->metadata()->recycleBin()) continue;
-        const QString childJson = groupToJson(child, colorIdx);
+        const QString childJson = groupToJson(child, colorIdx, depth + 1);
         if (!childJson.isEmpty())
             children.append(QJsonDocument::fromJson(childJson.toUtf8()).object());
     }
 
-    // Entradas (se checkbox ativo)
     if (m_chkEntries->isChecked()) {
         for (auto* e : g->entries()) {
             QJsonObject eObj;
             eObj["id"]    = QString(e->uuid().toRfc4122().toHex());
-            eObj["topic"] = e->title();
+            eObj["topic"] = "📄 " + e->title();
             eObj["type"]  = "entry";
+            QJsonObject eStyle;
+            eStyle["background"]   = pal.entBg;
+            eStyle["color"]        = pal.entFg;
+            eStyle["borderRadius"] = "999px";
+            eStyle["border"]       = QString("1px solid %1").arg(pal.entBorder);
+            eStyle["fontSize"]     = "12px";
+            eStyle["padding"]      = "2px 10px";
+            eObj["style"] = eStyle;
             children.append(eObj);
         }
     }
@@ -270,7 +332,7 @@ QString MindMapDialog::buildJson() const
     for (int i = 0; i < topGroups.size(); ++i) {
         auto* g = topGroups[i];
         if (m_db && g == m_db->metadata()->recycleBin()) continue;
-        const QString gJson = groupToJson(g, i);
+        const QString gJson = groupToJson(g, i, 0);
         if (!gJson.isEmpty())
             children.append(QJsonDocument::fromJson(gJson.toUtf8()).object());
     }

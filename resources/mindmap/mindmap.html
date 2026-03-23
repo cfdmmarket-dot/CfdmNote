@@ -92,6 +92,18 @@ function initMindMap(data) {
           type:  node.type  || 'group'
         });
       });
+
+      // Expandir/recolher ao clicar no nó
+      mind.bus.addListener('selectNode', function(node, event) {
+        if (!node || !node.children || node.children.length === 0) return;
+        try {
+          if (node.expanded === false) {
+            mind.expandNode(mind.findEle(node.id));
+          } else {
+            mind.collapseNode(mind.findEle(node.id));
+          }
+        } catch(err) {}
+      });
     }
   } catch(e) {
     document.body.innerHTML =
@@ -102,6 +114,34 @@ function initMindMap(data) {
 function zoomIn()    { if (mind) mind.scale(mind.scaleVal * 1.5); }
 function zoomOut()   { if (mind) mind.scale(mind.scaleVal / 1.5); }
 function zoomReset() { if (mind && mind.toCenter) mind.toCenter(); }
+
+// Muda direção do layout: 0=esquerda, 1=direita, 2=ambos
+var currentData = null;
+function setLayout(dir) {
+  if (!mind || !currentData) return;
+  try {
+    if (typeof mind.destroy === 'function') mind.destroy();
+    document.getElementById('map').innerHTML = '';
+    mind = null;
+  } catch(e) {}
+  var ME = (typeof MindElixir === 'function') ? MindElixir
+         : (MindElixir && MindElixir.default) ? MindElixir.default : null;
+  if (!ME) return;
+  mind = new ME({
+    el: '#map', direction: dir,
+    draggable: true, contextMenu: false,
+    toolBar: false, nodeMenu: false, keypress: false
+  });
+  mind.init(currentData);
+  setTimeout(function() { if (mind && mind.toCenter) mind.toCenter(); }, 150);
+}
+
+// Guarda dados para reusar no setLayout
+var _origInit = initMindMap;
+initMindMap = function(data) {
+  currentData = data;
+  _origInit(data);
+};
 
 // ── Detecta se elemento é nó do mapa ─────────────────────────────────────────
 function isMapNode(el) {
