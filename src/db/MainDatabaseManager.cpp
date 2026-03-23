@@ -37,12 +37,12 @@ bool MainDatabaseManager::createIfNeeded()
 
     // Cria banco com CompositeKey vazia (sem senha mestra)
     auto db = QSharedPointer<Database>::create();
-    db->metadata()->setName("CfdmNote");
+    db->metadata()->setName("CfdmNote-Base");
     db->metadata()->setRecycleBinEnabled(true);
 
     // Grupos padrão
     auto* root = db->rootGroup();
-    root->setName("CfdmNote");
+    root->setName("CfdmNote-Base");
 
     auto* personal = new Group();
     personal->setUuid(QUuid::createUuid());
@@ -127,6 +127,11 @@ bool MainDatabaseManager::openInMainWindow(MainWindow* mainWindow)
     if (!db) {
         qWarning() << "MainDatabaseManager: falha ao abrir banco principal:" << error;
         return false;
+    }
+
+    // Garante que o nome do banco é sempre "CfdmNote-Base"
+    if (db->metadata()->name() != "CfdmNote-Base") {
+        db->metadata()->setName("CfdmNote-Base");
     }
 
     // Injeta o banco já aberto no DatabaseTabWidget — sem diálogo de senha
