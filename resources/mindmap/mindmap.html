@@ -103,37 +103,43 @@ function zoomIn()    { if (mind) mind.scale(mind.scaleVal * 1.3); }
 function zoomOut()   { if (mind) mind.scale(mind.scaleVal * 0.75); }
 function zoomReset() { if (mind && mind.toCenter) mind.toCenter(); }
 
-// Pan manual — modifica mind.map.style.transform diretamente (mesmo mecanismo interno do ME)
+// Pan manual — captura qualquer clique que NÃO seja num nó (me-tpc)
 (function() {
   var panning = false, sx = 0, sy = 0;
 
-  function getXY(transform) {
-    var m = (transform || '').match(/translate3d\(([^,]+),\s*([^,]+)/);
+  function getXY(t) {
+    var m = (t || '').match(/translate3d\(([^,]+),\s*([^,]+)/);
     return { x: m ? parseFloat(m[1]) : 0, y: m ? parseFloat(m[2]) : 0 };
+  }
+
+  function isNode(el) {
+    // me-tpc = topic (texto do nó), me-epnode = nó expandível
+    while (el && el !== document.body) {
+      var tag = (el.tagName || '').toLowerCase();
+      if (tag === 'me-tpc' || tag === 'me-epnode' || tag === 'me-wrapper') return true;
+      el = el.parentElement;
+    }
+    return false;
   }
 
   document.addEventListener('mousedown', function(e) {
     if (!mind || !mind.map) return;
-    var tag = (e.target.tagName || '').toLowerCase();
-    var isBackground = tag === 'me-mind' || tag === 'svg' || tag === 'me-map'
-                    || e.target === mind.map || e.target.id === 'map';
-    if (isBackground) {
-      panning = true;
-      sx = e.clientX; sy = e.clientY;
-      document.body.style.cursor = 'grabbing';
-      e.preventDefault();
-    }
+    if (e.button !== 0) return;          // só botão esquerdo
+    if (isNode(e.target)) return;        // ignora clique em nós
+    panning = true;
+    sx = e.clientX; sy = e.clientY;
+    document.body.style.cursor = 'grabbing';
+    e.preventDefault();
   }, true);
 
   document.addEventListener('mousemove', function(e) {
     if (!panning || !mind || !mind.map) return;
     var dx = e.clientX - sx, dy = e.clientY - sy;
     sx = e.clientX; sy = e.clientY;
-    var t = mind.map.style.transform;
-    var pos = getXY(t);
+    var pos = getXY(mind.map.style.transform);
     var scale = mind.scaleVal || 1;
     mind.map.style.transform =
-      'translate3d(' + (pos.x + dx) + 'px, ' + (pos.y + dy) + 'px, 0) scale(' + scale + ')';
+      'translate3d(' + (pos.x+dx) + 'px,' + (pos.y+dy) + 'px,0) scale(' + scale + ')';
   }, true);
 
   document.addEventListener('mouseup', function() {
