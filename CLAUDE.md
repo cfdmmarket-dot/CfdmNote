@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v1.9.1
+## Versão atual: v1.9.2
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -62,6 +62,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v1.9.0 — Capturar Áudio / Transcrição (024): AudioCaptureDialog, grava WAV 16kHz via arecord, transcreve com whisper-cli ou python3 -m whisper, insere na nota (Ctrl+Shift+A) ✓
 - [x] v1.9.1 — Tradução de notas (026): TranslateDialog, LibreTranslate (3 endpoints gratuitos, sem API key), fallback Google Translate/DeepL, inverter idiomas, inserir na nota (Ctrl+Shift+T) ✓
 - [x] v1.9.1 — Pesquisar contexto da nota (027): extrai palavras-chave da nota (TF sem stopwords PT+EN, top 8), abre Google/Wikipedia/ChatGPT/GitHub com a query automática ✓
+- [x] v1.9.2 — ToastNotification: popup flutuante escuro com barra regressiva, botão copiar comando, fade-in/out, auto-close 20s; usado no AudioCaptureDialog quando whisper não está instalado ✓
 - [x] v1.5.0 — ReminderManager: verifica a cada 60s, reagenda recorrentes, adiar 1h/8h ✓
 - [x] v1.5.0 — Google Calendar: botão abre browser com evento pré-preenchido (sem OAuth) ✓
 

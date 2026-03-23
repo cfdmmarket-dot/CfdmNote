@@ -58,6 +58,7 @@ set(CFDMNOTE_SRCS
     src/gui/PowerSearchDialog.cpp
     src/gui/AudioCaptureDialog.cpp
     src/gui/TranslateDialog.cpp
+    src/gui/ToastNotification.cpp
     src/gui/NoteEditorWidget.cpp
     src/reminders/ReminderManager.cpp
     src/notes/NoteManager.cpp

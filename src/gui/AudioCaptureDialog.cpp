@@ -14,6 +14,7 @@
 #include "core/Entry.h"
 #include "core/Database.h"
 #include "notes/NoteManager.h"
+#include "gui/ToastNotification.h"
 
 static const QString WAV_PATH =
     QDir::tempPath() + "/cfdmnote_audio_capture.wav";
@@ -176,11 +177,20 @@ AudioCaptureDialog::AudioCaptureDialog(Entry* entry,
     // Detecta motor de transcrição disponível
     const QString engine = whisperEngine();
     if (engine.isEmpty()) {
-        setStatus(
-            tr("⚠ Motor de transcrição não encontrado. "
-               "Instale com: pip install openai-whisper  "
-               "ou compile whisper.cpp (https://github.com/ggerganov/whisper.cpp)"),
-            "#c05621");
+        setStatus(tr("⚠ Motor de transcrição não encontrado. Veja o aviso ao lado."),
+                  "#c05621");
+
+        // Popup flutuante não-bloqueante com instruções de instalação
+        QTimer::singleShot(300, this, [this]() {
+            ToastNotification::show(
+                parentWidget() ? parentWidget() : this,
+                tr("🎤 Transcrição não configurada"),
+                tr("A gravação de áudio já funciona!\n\n"
+                   "Para ativar a transcrição automática, instale o Whisper:"),
+                "pip install openai-whisper",
+                20000   // 20 segundos
+            );
+        });
     } else {
         setStatus(tr("Motor detectado: %1").arg(engine));
     }
@@ -360,10 +370,14 @@ void AudioCaptureDialog::onTranscribe()
 
     const QString engine = whisperEngine();
     if (engine.isEmpty()) {
-        setStatus(
-            tr("Motor não encontrado. Instale: pip install openai-whisper\n"
-               "ou whisper.cpp: https://github.com/ggerganov/whisper.cpp"),
-            "#c05621");
+        setStatus(tr("Motor não encontrado."), "#c05621");
+        ToastNotification::show(
+            parentWidget() ? parentWidget() : this,
+            tr("🎤 Instale o Whisper para transcrever"),
+            tr("Execute o comando abaixo no terminal e reinicie o CfdmNote:"),
+            "pip install openai-whisper",
+            20000
+        );
         return;
     }
 
