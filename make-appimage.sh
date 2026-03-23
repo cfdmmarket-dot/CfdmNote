@@ -98,7 +98,7 @@ echo "[✓] AppDir montado"
 echo ""
 echo "[→] Resolvendo dependências e plugins Qt..."
 export APPDIR="${APPDIR}"
-export OUTPUT="${SCRIPT_DIR}/CfdmNote-${VERSION}-x86_64.AppImage"
+export OUTPUT="${SCRIPT_DIR}/CfdmNote-${VERSION}-linux-x86_64.AppImage"
 
 # Executa sem criar AppImage ainda (--plugin qt copia plugins Qt automaticamente)
 "${LINUXDEPLOY}" \
@@ -123,6 +123,6 @@ echo "║  AppImage gerado com sucesso!                        ║"
 echo "║  $(basename "${OUTPUT}")"
 echo "║                                                      ║"
 echo "║  Para executar:                                      ║"
-echo "║    chmod +x CfdmNote-${VERSION}-x86_64.AppImage     ║"
-echo "║    ./CfdmNote-${VERSION}-x86_64.AppImage            ║"
+echo "║    chmod +x CfdmNote-${VERSION}-linux-x86_64.AppImage     ║"
+echo "║    ./CfdmNote-${VERSION}-linux-x86_64.AppImage            ║"
 echo "╚══════════════════════════════════════════════════════╝"
