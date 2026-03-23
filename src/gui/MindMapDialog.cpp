@@ -66,7 +66,7 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     m_chkEntries->setChecked(false);
     bar->addWidget(m_chkEntries);
 
-    auto* hint = new QLabel(tr("   Arraste nós · Scroll = zoom · Clique = detalhes"));
+    auto* hint = new QLabel(tr("   Arrastar fundo = mover mapa · Arrastar nó = reposicionar · Clique = detalhes"));
     hint->setStyleSheet("color:#90cdf4; font-size:11px; font-style:italic;");
     bar->addWidget(hint);
     root->addWidget(bar);

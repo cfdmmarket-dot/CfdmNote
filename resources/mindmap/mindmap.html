@@ -66,8 +66,8 @@ function initMindMap(data) {
   }
 }
 
-function zoomIn()    { if (mind && mind.scale)    mind.scale(1.2); }
-function zoomOut()   { if (mind && mind.scale)    mind.scale(0.8); }
+function zoomIn()    { if (mind) mind.scale(mind.scaleVal + mind.scaleSensitivity); }
+function zoomOut()   { if (mind) mind.scale(mind.scaleVal - mind.scaleSensitivity); }
 function zoomReset() { if (mind && mind.toCenter) mind.toCenter(); }
 </script>
 </body>
