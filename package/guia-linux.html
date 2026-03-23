@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>CfdmNote — Como usar no Linux</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    color: #1a202c;
+    background: #fff;
+    padding: 32px 40px;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  /* Cabeçalho */
+  .header {
+    background: linear-gradient(135deg, #1e4080, #2b6cb0);
+    color: white;
+    border-radius: 10px;
+    padding: 22px 28px;
+    margin-bottom: 24px;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .header p  { font-size: 13px; opacity: 0.85; }
+
+  /* Seções */
+  h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #2b6cb0;
+    border-left: 4px solid #2b6cb0;
+    padding-left: 10px;
+    margin: 20px 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  p  { line-height: 1.7; margin-bottom: 8px; color: #2d3748; }
+  ul { padding-left: 18px; margin-bottom: 8px; }
+  li { line-height: 1.8; color: #2d3748; }
+
+  /* Caixa de destaque */
+  .box {
+    background: #ebf8ff;
+    border: 1px solid #bee3f8;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 10px 0;
+  }
+  .box.warn {
+    background: #fffbeb;
+    border-color: #fbd38d;
+  }
+  .box.green {
+    background: #f0fff4;
+    border-color: #9ae6b4;
+  }
+
+  /* Passos numerados */
+  .step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin: 10px 0;
+    padding: 12px 14px;
+    background: #f7fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+  .step-num {
+    background: #2b6cb0;
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-content { flex: 1; }
+  .step-content strong { display: block; margin-bottom: 4px; color: #1a202c; font-size: 13px; }
+
+  /* Código */
+  code {
+    background: #2d3748;
+    color: #e2e8f0;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    display: block;
+    margin: 8px 0;
+    letter-spacing: 0.3px;
+  }
+
+  /* FAQ */
+  .faq { margin: 6px 0; }
+  .faq-q { font-weight: 700; color: #2b6cb0; margin-bottom: 2px; }
+  .faq-a { color: #4a5568; margin-left: 12px; margin-bottom: 10px; }
+
+  /* Rodapé */
+  .footer {
+    margin-top: 28px;
+    padding-top: 14px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 11px;
+    color: #a0aec0;
+    text-align: center;
+  }
+
+  @media print {
+    body { padding: 20px 30px; }
+    .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .step-num { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔐 CfdmNote — Como usar no Linux</h1>
+  <p>Guia rápido · Versão 2.2.0 · Sem conhecimento técnico necessário</p>
+</div>
+
+<!-- O QUE É -->
+<h2>O que você tem</h2>
+<p>O arquivo <strong>CfdmNote-2.2.0-linux-x86_64.AppImage</strong> é o aplicativo completo numa caixinha. Não precisa instalar nada — tudo já está dentro dele.</p>
+
+<!-- PASSOS -->
+<h2>Como abrir pela primeira vez</h2>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-content">
+    <strong>Coloque o arquivo numa pasta fácil de achar</strong>
+    Por exemplo: Área de Trabalho ou uma pasta chamada <em>Aplicativos</em>.
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-content">
+    <strong>Dê permissão para o arquivo abrir</strong>
+    Clique com o <strong>botão direito</strong> → <strong>Propriedades</strong> → aba <strong>Permissões</strong> → marque <strong>"Permitir execução como programa"</strong>.
+    <div class="box" style="margin-top:8px;">
+      💡 Só precisa fazer isso <strong>uma única vez</strong>.
+    </div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-content">
+    <strong>Dê dois cliques no arquivo</strong>
+    O CfdmNote vai abrir. Se aparecer uma pergunta, escolha <strong>"Executar"</strong>.
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-content">
+    <strong>Crie sua senha na primeira vez</strong>
+    O app vai pedir uma senha para proteger seus dados. Escolha uma que você vai lembrar e <strong>anote num lugar seguro</strong>.
+    <div class="box warn" style="margin-top:8px;">
+      ⚠️ Se errar a senha 10 vezes, os dados são apagados por segurança.
+    </div>
+  </div>
+</div>
+
+<!-- SE NÃO ABRIR -->
+<h2>Se não abrir com dois cliques</h2>
+<p>Abra o terminal, vá até a pasta onde está o arquivo e digite:</p>
+<code>./CfdmNote-2.2.0-linux-x86_64.AppImage</code>
+
+<!-- PENDRIVE -->
+<h2>Usar no pendrive</h2>
+<div class="box green">
+  ✅ Copie o arquivo para o pendrive normalmente. Em qualquer computador Linux, repita os passos 2 e 3. Funciona igual — sem instalar nada.
+</div>
+
+<!-- FAQ -->
+<h2>Dúvidas frequentes</h2>
+
+<div class="faq">
+  <div class="faq-q">O arquivo tem 41 MB — é normal?</div>
+  <div class="faq-a">Sim. Tudo que o app precisa está dentro dele, por isso é maior.</div>
+</div>
+<div class="faq">
+  <div class="faq-q">Precisa de internet?</div>
+  <div class="faq-a">Não. Funciona completamente sem internet.</div>
+</div>
+<div class="faq">
+  <div class="faq-q">Como faço backup dos meus dados?</div>
+  <div class="faq-a">Menu <strong>CfdmNote → Backup Externo</strong> para salvar num pendrive ou HD externo.</div>
+</div>
+<div class="faq">
+  <div class="faq-q">Como abro o manual do app?</div>
+  <div class="faq-a">Pressione <strong>F1</strong> dentro do app.</div>
+</div>
+
+<div class="footer">
+  CfdmNote v2.2.0 &nbsp;·&nbsp; Linux x86_64 &nbsp;·&nbsp; by CFDM
+</div>
+
+</body>
+</html>
