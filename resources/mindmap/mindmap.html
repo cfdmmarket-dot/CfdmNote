@@ -6,26 +6,13 @@
 <link rel="stylesheet" href="qrc:/cfdmnote/mindmap/mind-elixir.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1b2e; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #f8fafc; }
   #map { width: 100%; height: 100%; }
-
-  /* Reduz espaçamento entre nós */
-  #map {
-    --node-gap-x: 12px;
-    --node-gap-y: 6px;
-    --main-gap-x: 32px;
-    --main-gap-y: 18px;
-    --root-radius: 20px;
-    --main-radius: 12px;
-  }
-
-  /* Oculta toolbar interna do Mind Elixir — usamos a do Qt */
   .mind-elixir-toolbar { display: none !important; }
 </style>
 </head>
 <body>
 <div id="map"></div>
-
 <script src="qrc:/cfdmnote/mindmap/mind-elixir.js"></script>
 <script>
 var mind = null;
@@ -38,8 +25,7 @@ function initMindMap(data) {
 
     if (!ME) {
       document.body.innerHTML =
-        '<div style="color:orange;padding:20px;font-family:sans-serif;">'
-        + 'Erro: MindElixir não carregou.</div>';
+        '<div style="color:red;padding:20px;">Erro: MindElixir não carregou.</div>';
       return;
     }
 
@@ -57,43 +43,32 @@ function initMindMap(data) {
       toolBar: false,
       nodeMenu: false,
       keypress: false,
-      before: {
-        insertSibling: function() { return false; },
-        addChild:      function() { return false; },
-        editNode:      function() { return false; },
-      }
+      theme: ME.THEME,
     });
     mind.init(data);
 
-    // Centraliza e ajusta zoom para caber tudo
     setTimeout(function() {
       if (mind && typeof mind.toCenter === 'function') mind.toCenter();
-    }, 100);
+    }, 150);
 
-    // Notifica Qt quando um nó é selecionado
     if (mind.bus && typeof mind.bus.addListener === 'function') {
       mind.bus.addListener('selectNode', function(node) {
-        var payload = JSON.stringify({
+        document.title = 'SELECT:' + JSON.stringify({
           id:    node.id    || '',
           topic: node.topic || '',
           type:  node.type  || 'group'
         });
-        document.title = 'SELECT:' + payload;
       });
     }
-
   } catch(e) {
     document.body.innerHTML =
-      '<div style="color:white;padding:20px;font-family:sans-serif;">'
-      + '<b>Erro:</b><br>' + e.message
-      + '<br><pre style="font-size:10px;color:#fbb">' + e.stack + '</pre></div>';
+      '<div style="color:red;padding:20px;"><b>Erro:</b><br>' + e.message + '</div>';
   }
 }
 
-// Funções de zoom chamadas pelo Qt
-function zoomIn()     { if (mind && mind.scale) mind.scale(1.2); }
-function zoomOut()    { if (mind && mind.scale) mind.scale(0.8); }
-function zoomReset()  { if (mind && mind.toCenter) mind.toCenter(); }
+function zoomIn()    { if (mind && mind.scale)    mind.scale(1.2); }
+function zoomOut()   { if (mind && mind.scale)    mind.scale(0.8); }
+function zoomReset() { if (mind && mind.toCenter) mind.toCenter(); }
 </script>
 </body>
 </html>

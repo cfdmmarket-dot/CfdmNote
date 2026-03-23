@@ -216,29 +216,15 @@ void MindMapDialog::showMap(QSharedPointer<Database> db, QWidget* parent)
 
 // ─── Construção do JSON para Mind Elixir ─────────────────────────────────────
 
-static const QStringList COLORS = {
-    "#3182ce", "#38a169", "#dd6b20", "#805ad5",
-    "#e53e3e", "#00b5d8", "#d69e2e", "#319795",
-    "#667eea", "#ed64a6"
-};
-
 QString MindMapDialog::groupToJson(Group* g, int colorIdx) const
 {
     if (!g) return "{}";
     if (m_db && g == m_db->metadata()->recycleBin()) return "";
 
-    const QString color = COLORS[colorIdx % COLORS.size()];
-
     QJsonObject obj;
     obj["id"]    = QString(g->uuid().toRfc4122().toHex());
     obj["topic"] = g->name();
     obj["type"]  = "group";
-    obj["style"] = QJsonObject{
-        {"background", color},
-        {"color", "#ffffff"},
-        {"borderRadius", "8px"},
-        {"padding", "4px 12px"}
-    };
 
     QJsonArray children;
 
@@ -257,13 +243,6 @@ QString MindMapDialog::groupToJson(Group* g, int colorIdx) const
             eObj["id"]    = QString(e->uuid().toRfc4122().toHex());
             eObj["topic"] = e->title();
             eObj["type"]  = "entry";
-            eObj["style"] = QJsonObject{
-                {"background", QColor(color).lighter(175).name()},
-                {"color", "#1a202c"},
-                {"border", "1px solid " + color},
-                {"borderRadius", "5px"},
-                {"fontSize", "12px"}
-            };
             children.append(eObj);
         }
     }
@@ -285,14 +264,6 @@ QString MindMapDialog::buildJson() const
     QJsonObject root;
     root["id"]    = "root";
     root["topic"] = dbName;
-    root["style"] = QJsonObject{
-        {"background", "#2c5282"},
-        {"color", "#ffffff"},
-        {"fontWeight", "bold"},
-        {"borderRadius", "50%"},
-        {"width", "90px"},
-        {"height", "90px"}
-    };
 
     QJsonArray children;
     const auto topGroups = rootGrp->children();
