@@ -9,24 +9,18 @@
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1b2e; }
   #map { width: 100%; height: 100%; }
 
-  /* Sobrescreve tema para combinar com CfdmNote */
-  me-root me-parent .mind-elixir-node {
-    background: #2b6cb0;
-    color: white;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 600;
+  /* Reduz espaçamento entre nós */
+  #map {
+    --node-gap-x: 12px;
+    --node-gap-y: 6px;
+    --main-gap-x: 32px;
+    --main-gap-y: 18px;
+    --root-radius: 20px;
+    --main-radius: 12px;
   }
-  me-epnode .mind-elixir-node {
-    font-size: 12px;
-  }
-  .mind-elixir-toolbar {
-    background: #1a365d !important;
-    border-radius: 8px;
-  }
-  .mind-elixir-toolbar button {
-    color: white !important;
-  }
+
+  /* Oculta toolbar interna do Mind Elixir — usamos a do Qt */
+  .mind-elixir-toolbar { display: none !important; }
 </style>
 </head>
 <body>
@@ -36,11 +30,8 @@
 <script>
 var mind = null;
 
-// Recebe o objeto de dados do banco e inicializa o mapa
-// data: objeto JS (não string) — injetado diretamente pelo Qt via runJavaScript
 function initMindMap(data) {
   try {
-    // Resolve o construtor: IIFE exporta em .default
     var ME = (typeof MindElixir === 'function') ? MindElixir
            : (MindElixir && MindElixir.default) ? MindElixir.default
            : null;
@@ -48,11 +39,10 @@ function initMindMap(data) {
     if (!ME) {
       document.body.innerHTML =
         '<div style="color:orange;padding:20px;font-family:sans-serif;">'
-        + 'Erro: MindElixir não carregou. Verifique o arquivo JS.</div>';
+        + 'Erro: MindElixir não carregou.</div>';
       return;
     }
 
-    // Destroi instância anterior corretamente
     if (mind) {
       if (typeof mind.destroy === 'function') mind.destroy();
       document.getElementById('map').innerHTML = '';
@@ -64,9 +54,9 @@ function initMindMap(data) {
       direction: ME.SIDE !== undefined ? ME.SIDE : 2,
       draggable: true,
       contextMenu: false,
-      toolBar: true,
+      toolBar: false,
       nodeMenu: false,
-      keypress: true,
+      keypress: false,
       before: {
         insertSibling: function() { return false; },
         addChild:      function() { return false; },
@@ -75,23 +65,35 @@ function initMindMap(data) {
     });
     mind.init(data);
 
+    // Centraliza e ajusta zoom para caber tudo
+    setTimeout(function() {
+      if (mind && typeof mind.toCenter === 'function') mind.toCenter();
+    }, 100);
+
     // Notifica Qt quando um nó é selecionado
-    mind.bus.addListener('selectNode', function(node) {
-      var payload = JSON.stringify({
-        id:    node.id    || '',
-        topic: node.topic || '',
-        type:  node.type  || 'group'
+    if (mind.bus && typeof mind.bus.addListener === 'function') {
+      mind.bus.addListener('selectNode', function(node) {
+        var payload = JSON.stringify({
+          id:    node.id    || '',
+          topic: node.topic || '',
+          type:  node.type  || 'group'
+        });
+        document.title = 'SELECT:' + payload;
       });
-      document.title = 'SELECT:' + payload;
-    });
+    }
 
   } catch(e) {
     document.body.innerHTML =
       '<div style="color:white;padding:20px;font-family:sans-serif;">'
-      + '<b>Erro ao carregar mapa mental:</b><br>' + e.message
+      + '<b>Erro:</b><br>' + e.message
       + '<br><pre style="font-size:10px;color:#fbb">' + e.stack + '</pre></div>';
   }
 }
+
+// Funções de zoom chamadas pelo Qt
+function zoomIn()     { if (mind && mind.scale) mind.scale(1.2); }
+function zoomOut()    { if (mind && mind.scale) mind.scale(0.8); }
+function zoomReset()  { if (mind && mind.toCenter) mind.toCenter(); }
 </script>
 </body>
 </html>

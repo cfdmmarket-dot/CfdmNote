@@ -56,7 +56,10 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     bar->addSeparator();
 
     auto* actReload = bar->addAction("↺ Recarregar");
-    auto* actExport = bar->addAction("💾 PNG");
+    auto* actZoomIn  = bar->addAction("🔍+");
+    auto* actZoomOut = bar->addAction("🔍−");
+    auto* actFit     = bar->addAction("⊡ Caber");
+    auto* actExport  = bar->addAction("💾 PNG");
     bar->addSeparator();
 
     m_chkEntries = new QCheckBox(tr("Mostrar entradas"));
@@ -180,7 +183,16 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     root->addWidget(splitter, 1);
 
     // ── Conexões ──────────────────────────────────────────────────────────────
-    connect(actReload, &QAction::triggered, this, [this]() { injectMap(); });
+    connect(actReload,  &QAction::triggered, this, [this]() { injectMap(); });
+    connect(actZoomIn,  &QAction::triggered, this, [this]() {
+        m_webView->page()->runJavaScript("zoomIn();");
+    });
+    connect(actZoomOut, &QAction::triggered, this, [this]() {
+        m_webView->page()->runJavaScript("zoomOut();");
+    });
+    connect(actFit,     &QAction::triggered, this, [this]() {
+        m_webView->page()->runJavaScript("zoomReset();");
+    });
 
     connect(actExport, &QAction::triggered, this, [this]() {
         const QString path = QFileDialog::getSaveFileName(
