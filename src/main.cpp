@@ -42,10 +42,11 @@
 #include "gui/VaultUnlockDialog.h"
 #include "gui/CsvImportDialog.h"
 #include "gui/LinksPanelWidget.h"
+#include "gui/BackupDialog.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.2.0";
+static const QString APP_VERSION = "1.2.1";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -437,6 +438,16 @@ int main(int argc, char* argv[])
     });
 
     cfdmMenu->addSeparator();
+
+    // Backup externo para mídia removível
+    QAction* actBackup = cfdmMenu->addAction(
+        QIcon::fromTheme("document-save-as"),
+        QObject::tr("&Backup Externo...")
+    );
+    actBackup->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_B));
+    QObject::connect(actBackup, &QAction::triggered, [&mainWindow]() {
+        BackupDialog::runBackup(&mainWindow, &mainWindow);
+    });
 
     // Importar CSV (com barra de progresso real)
     QAction* actImportCsv = cfdmMenu->addAction(

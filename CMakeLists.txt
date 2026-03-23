@@ -49,6 +49,7 @@ set(CFDMNOTE_SRCS
     src/gui/VaultUnlockDialog.cpp
     src/gui/CsvImportDialog.cpp
     src/gui/LinksPanelWidget.cpp
+    src/gui/BackupDialog.cpp
     src/gui/NoteEditorWidget.cpp
     src/notes/NoteManager.cpp
     src/db/MainDatabaseManager.cpp
