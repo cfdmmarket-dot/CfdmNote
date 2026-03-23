@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v1.8.2
+## Versão atual: v1.9.0
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -59,6 +59,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v1.8.1 — Botão "⚡ CfdmNote" na toolbar (022): acesso rápido a todas as funções via QToolButton+menu ✓
 - [x] v1.8.1 — Tooltip rico nas entradas (023): hover mostra título/usuário/URL/tags da entrada ✓
 - [x] v1.8.2 — Fix: tooltip instalado em connectDbWidget (não mais timer fixo), garante funcionamento ao abrir banco ✓
+- [x] v1.9.0 — Capturar Áudio / Transcrição (024): AudioCaptureDialog, grava WAV 16kHz via arecord, transcreve com whisper-cli ou python3 -m whisper, insere na nota (Ctrl+Shift+A) ✓
 - [x] v1.5.0 — ReminderManager: verifica a cada 60s, reagenda recorrentes, adiar 1h/8h ✓
 - [x] v1.5.0 — Google Calendar: botão abre browser com evento pré-preenchido (sem OAuth) ✓
 

@@ -65,11 +65,12 @@
 #include "gui/ManualDialog.h"
 #include "gui/DatabaseInfoDialog.h"
 #include "gui/PowerSearchDialog.h"
+#include "gui/AudioCaptureDialog.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.8.2";
+static const QString APP_VERSION = "1.9.0";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -780,6 +781,23 @@ int main(int argc, char* argv[])
             return;
         }
         ReminderDialog::editReminder(entry, dbWidget->database(), &mainWindow);
+    });
+
+    // Capturar Áudio / Transcrição (024)
+    QAction* actAudio = cfdmMenu->addAction(
+        QIcon::fromTheme("audio-input-microphone"),
+        QObject::tr("&Capturar Áudio / Transcrição...")
+    );
+    actAudio->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_A));
+    QObject::connect(actAudio, &QAction::triggered, [&mainWindow]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        Entry* entry = nullptr;
+        QSharedPointer<Database> db;
+        if (dbTabWidget && dbTabWidget->currentDatabaseWidget()) {
+            entry = dbTabWidget->currentDatabaseWidget()->currentSelectedEntry();
+            db    = dbTabWidget->currentDatabaseWidget()->database();
+        }
+        AudioCaptureDialog::captureAudio(entry, db, &mainWindow);
     });
 
     // Pesquisa Poderosa (011) — busca local + web + Google Dorking + verificar link
