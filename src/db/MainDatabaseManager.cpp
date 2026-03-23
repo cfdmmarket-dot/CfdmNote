@@ -7,6 +7,11 @@
 #include <QUuid>
 #include <QTimer>
 #include <QDebug>
+#include <QSplitter>
+#include <QVBoxLayout>
+#include <QPushButton>
+#include <QIcon>
+#include <QLabel>
 
 #include "core/Database.h"
 #include "core/Group.h"
@@ -18,7 +23,84 @@
 #include "gui/MainWindow.h"
 #include "gui/DatabaseWidget.h"
 #include "gui/DatabaseTabWidget.h"
+#include "gui/group/GroupView.h"
+#include "gui/group/GroupModel.h"
 #include "core/Config.h"
+
+// ─── Painel de Lixeira fora da árvore de grupos ───────────────────────────────
+
+static void setupLixeiraPanel(DatabaseWidget* dbWidget, QSharedPointer<Database> db)
+{
+    if (!dbWidget || !db) return;
+
+    auto* recycleBin = db->metadata()->recycleBin();
+    if (!recycleBin) return;
+
+    // Encontra o m_groupSplitter (único splitter vertical no DatabaseWidget)
+    QSplitter* groupSplitter = nullptr;
+    for (auto* s : dbWidget->findChildren<QSplitter*>()) {
+        if (s->orientation() == Qt::Vertical) {
+            groupSplitter = s;
+            break;
+        }
+    }
+    if (!groupSplitter) return;
+
+    // Encontra a GroupView pelo objectName
+    auto* groupView = qobject_cast<GroupView*>(dbWidget->findChild<QWidget*>("groupView"));
+    if (!groupView) return;
+
+    // Esconde a linha da Lixeira dentro da árvore de grupos
+    auto* groupModel = qobject_cast<GroupModel*>(groupView->model());
+    if (groupModel) {
+        const QModelIndex idx = groupModel->index(recycleBin);
+        if (idx.isValid()) {
+            groupView->setRowHidden(idx.row(), idx.parent(), true);
+        }
+    }
+
+    // Cria o widget da Lixeira
+    auto* lixeiraWidget = new QWidget();
+    lixeiraWidget->setObjectName("lixeiraWidget");
+    auto* lay = new QVBoxLayout(lixeiraWidget);
+    lay->setContentsMargins(0, 0, 0, 0);
+    lay->setSpacing(0);
+
+    auto* lixeiraBtn = new QPushButton(
+        QIcon::fromTheme("user-trash", QIcon::fromTheme("edit-delete")),
+        QObject::tr("  Lixeira")
+    );
+    lixeiraBtn->setFlat(true);
+    lixeiraBtn->setCursor(Qt::PointingHandCursor);
+    lixeiraBtn->setStyleSheet(
+        "QPushButton {"
+        "  text-align: left; padding: 6px 10px; font-size: 12px;"
+        "  border: none;"
+        "  border-top: 1px solid palette(mid);"
+        "  border-bottom: 1px solid palette(mid);"
+        "}"
+        "QPushButton:hover {"
+        "  background: palette(highlight); color: palette(highlighted-text);"
+        "}"
+        "QPushButton:pressed {"
+        "  background: palette(highlight); color: palette(highlighted-text);"
+        "}"
+    );
+
+    // Ao clicar: seleciona o grupo Lixeira na GroupView
+    QObject::connect(lixeiraBtn, &QPushButton::clicked, [groupView, recycleBin]() {
+        groupView->setCurrentGroup(recycleBin);
+    });
+
+    lay->addWidget(lixeiraBtn);
+
+    // Insere antes do tagsWidget (posição 1)
+    groupSplitter->insertWidget(1, lixeiraWidget);
+    groupSplitter->setCollapsible(1, false);
+    groupSplitter->setStretchFactor(0, 100); // groupView expande
+    groupSplitter->setStretchFactor(1, 0);   // lixeiraWidget — tamanho fixo
+    groupSplitter->setStretchFactor(2, 0);   // tagsWidget — tamanho fixo
+}
 
 QString MainDatabaseManager::defaultDatabasePath()
 {
@@ -151,13 +233,15 @@ bool MainDatabaseManager::openInMainWindow(MainWindow* mainWindow)
     auto* dbWidget = new DatabaseWidget(db, tabWidget);
     tabWidget->addDatabaseTab(dbWidget);
 
-    // Reaplica o splitter após o widget estar visível (altura real disponível)
-    QTimer::singleShot(300, dbWidget, [dbWidget]() {
+    // Reaplica o splitter e configura painel de Lixeira após widget visível
+    QTimer::singleShot(300, dbWidget, [dbWidget, db]() {
+        setupLixeiraPanel(dbWidget, db);
+
         const int h = dbWidget->height();
         if (h > 0) {
             dbWidget->setSplitterSizes({
                 {Config::GUI_GroupSplitterState,
-                 QList<int>({static_cast<int>(h * 0.65), static_cast<int>(h * 0.35)})}
+                 QList<int>({static_cast<int>(h * 0.65), 28, static_cast<int>(h * 0.35)})}
             });
         }
     });

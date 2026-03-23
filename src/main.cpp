@@ -16,6 +16,15 @@
 #include <QDir>
 #include <QSettings>
 #include <QApplication>
+#include <QTabWidget>
+#include <QBuffer>
+#include <QMovie>
+#include <QSplitter>
+#include <QVBoxLayout>
+#include <QDateTime>
+#include <QFileInfo>
+
+#include "core/Metadata.h"
 
 // Motor interno do CfdmNote
 #include "gui/Application.h"
@@ -31,10 +40,12 @@
 #include "gui/NoteEditorWidget.h"
 #include "gui/VaultDialog.h"
 #include "gui/VaultUnlockDialog.h"
+#include "gui/CsvImportDialog.h"
+#include "gui/LinksPanelWidget.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.1.0";
+static const QString APP_VERSION = "1.2.0";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -119,38 +130,149 @@ protected:
 };
 
 /**
- * Conecta o sinal entrySelectionChanged do DatabaseWidget ao NoteEditorWidget.
- * Chamado sempre que um banco é aberto ou trocado.
+ * Cria a aba "Notas" dentro do preview de entradas do DatabaseWidget.
+ * Retorna o NoteEditorWidget criado (null se já existia ou falhou).
  */
-static void connectDbWidget(DatabaseWidget* dbWidget, NoteEditorWidget* noteEditor)
+static NoteEditorWidget* setupNotesTab(DatabaseWidget* dbWidget)
 {
-    if (!dbWidget || !noteEditor) return;
-    QObject::connect(dbWidget, &DatabaseWidget::entrySelectionChanged,
-                     noteEditor, [dbWidget, noteEditor]() {
-        Entry* entry = dbWidget->currentSelectedEntry();
-        if (entry)
-            noteEditor->loadNoteForEntry(entry->uuidToHex());
-        else
-            noteEditor->clearNote();
+    if (!dbWidget) return nullptr;
+    if (dbWidget->findChild<NoteEditorWidget*>()) return nullptr; // já configurado
+
+    auto* previewWidget = dbWidget->findChild<QWidget*>("previewWidget");
+    if (!previewWidget) return nullptr;
+
+    auto* splitter = qobject_cast<QSplitter*>(previewWidget->parentWidget());
+    if (!splitter) return nullptr;
+
+    const int idx = splitter->indexOf(previewWidget);
+    if (idx < 0) return nullptr;
+
+    // Cria QTabWidget com abas no topo
+    auto* tabWidget = new QTabWidget();
+    tabWidget->setObjectName("notesTabWidget");
+    tabWidget->setTabPosition(QTabWidget::North);
+    tabWidget->setDocumentMode(false);
+
+    // Substitui previewWidget no splitter; retorna o widget desconectado
+    auto* detachedPreview = splitter->replaceWidget(idx, tabWidget);
+    tabWidget->addTab(detachedPreview,
+                      QIcon::fromTheme("dialog-information"), QObject::tr("Detalhes"));
+
+    // ── Aba "Notas": preview de GIF + editor Markdown ─────────────────────
+    auto* notesContainer = new QWidget();
+    auto* notesLayout = new QVBoxLayout(notesContainer);
+    notesLayout->setContentsMargins(0, 0, 0, 0);
+    notesLayout->setSpacing(0);
+
+    // Preview de GIF animado (oculto por padrão)
+    auto* gifLabel = new QLabel();
+    gifLabel->setObjectName("gifIconLabel");
+    gifLabel->setAlignment(Qt::AlignCenter);
+    gifLabel->setMaximumHeight(140);
+    gifLabel->setStyleSheet(
+        "QLabel { background: palette(base); border-bottom: 1px solid palette(mid); padding: 4px; }");
+    gifLabel->setVisible(false);
+    notesLayout->addWidget(gifLabel);
+
+    auto* noteEditor = new NoteEditorWidget();
+    notesLayout->addWidget(noteEditor, 1);
+
+    tabWidget->addTab(notesContainer,
+                      QIcon::fromTheme("text-editor"), QObject::tr("Notas"));
+
+    // Aba Links (Local Disk + External/Removable)
+    auto* linksPanel = new LinksPanelWidget();
+    linksPanel->setObjectName("linksPanelWidget");
+    tabWidget->addTab(linksPanel,
+                      QIcon::fromTheme("folder-remote"), QObject::tr("Links"));
+
+    return noteEditor;
+}
+
+/**
+ * Atualiza o preview de GIF animado na aba Notas.
+ * Mostra animação se a entrada tem um ícone personalizado GIF.
+ */
+static void updateGifPreview(QLabel* gifLabel, Entry* entry, const QSharedPointer<Database>& db)
+{
+    if (!gifLabel) return;
+
+    // Remove movie anterior
+    if (gifLabel->movie()) {
+        gifLabel->movie()->stop();
+        gifLabel->movie()->deleteLater();
+        gifLabel->setMovie(nullptr);
+        // Remove buffers filhos
+        for (auto* child : gifLabel->children())
+            if (qobject_cast<QBuffer*>(child)) child->deleteLater();
+    }
+    gifLabel->clear();
+    gifLabel->setVisible(false);
+
+    if (!entry || entry->iconUuid().isNull() || !db) return;
+
+    const auto& iconData = db->metadata()->customIcon(entry->iconUuid());
+    if (!iconData.data.startsWith("GIF8")) return;
+
+    // Cria QBuffer com cópia interna dos bytes GIF
+    auto* buf = new QBuffer(gifLabel);
+    buf->setData(iconData.data);
+    buf->open(QIODevice::ReadOnly);
+
+    auto* movie = new QMovie(gifLabel);
+    movie->setDevice(buf);
+
+    if (!movie->isValid()) { movie->deleteLater(); return; }
+
+    gifLabel->setMovie(movie);
+    movie->start();
+    gifLabel->setVisible(true);
+}
+
+/**
+ * Conecta entrySelectionChanged e configura a aba Notas para um DatabaseWidget.
+ */
+static void connectDbWidget(DatabaseWidget* dbWidget)
+{
+    if (!dbWidget) return;
+
+    QTimer::singleShot(400, dbWidget, [dbWidget]() {
+        auto* noteEditor = setupNotesTab(dbWidget);
+        if (!noteEditor) {
+            // Já configurado — garante que o NoteEditorWidget existente está conectado
+            noteEditor = dbWidget->findChild<NoteEditorWidget*>();
+            if (!noteEditor) return;
+        }
+
+        QObject::connect(dbWidget, &DatabaseWidget::entrySelectionChanged,
+                         noteEditor, [dbWidget, noteEditor]() {
+            auto* gifLabel    = dbWidget->findChild<QLabel*>("gifIconLabel");
+            auto* linksPanel  = dbWidget->findChild<LinksPanelWidget*>();
+            Entry* entry = dbWidget->currentSelectedEntry();
+            if (entry) {
+                noteEditor->loadNoteForEntry(entry->uuidToHex());
+                updateGifPreview(gifLabel, entry, dbWidget->database());
+                if (linksPanel) linksPanel->loadEntry(entry, dbWidget->database());
+            } else {
+                noteEditor->clearNote();
+                updateGifPreview(gifLabel, nullptr, {});
+                if (linksPanel) linksPanel->clearLinks();
+            }
+        }, Qt::UniqueConnection);
     });
 }
 
-static void connectEntryToNotes(MainWindow* mw, NoteEditorWidget* noteEditor)
+static void connectEntryToNotes(MainWindow* mw)
 {
     auto* tabWidget = mw->findChild<DatabaseTabWidget*>();
     if (!tabWidget) return;
 
-    // Quando banco ativo mudar → reconecta
     QObject::connect(tabWidget, &DatabaseTabWidget::activeDatabaseChanged,
-                     noteEditor, [noteEditor](DatabaseWidget* dbWidget) {
-        if (!dbWidget)
-            noteEditor->clearNote();
-        else
-            connectDbWidget(dbWidget, noteEditor);
+                     mw, [](DatabaseWidget* dbWidget) {
+        connectDbWidget(dbWidget);
     });
 
-    // Banco já aberto agora (se houver)
-    connectDbWidget(tabWidget->currentDatabaseWidget(), noteEditor);
+    connectDbWidget(tabWidget->currentDatabaseWidget());
 }
 
 int main(int argc, char* argv[])
@@ -182,16 +304,7 @@ int main(int argc, char* argv[])
     MainWindow mainWindow;
     mainWindow.setWindowIcon(cfdmIcon);
 
-    // ── Painel de Notas Markdown (dock lateral) ───────────────────────────────
-    auto* noteDock = new QDockWidget(QObject::tr("Notas"), &mainWindow);
-    noteDock->setObjectName("CfdmNotesDock");
-    noteDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
-    noteDock->setFeatures(QDockWidget::DockWidgetMovable   |
-                          QDockWidget::DockWidgetFloatable |
-                          QDockWidget::DockWidgetClosable);
-    auto* noteEditor = new NoteEditorWidget(noteDock);
-    noteDock->setWidget(noteEditor);
-    mainWindow.addDockWidget(Qt::RightDockWidgetArea, noteDock);
+    // Notas integradas como aba no preview de entrada (não mais como dock)
 
     // ── Overlay de carregamento (aparece em operações longas) ─────────────────
     auto* busyOverlay = new QLabel(&mainWindow);
@@ -215,7 +328,7 @@ int main(int argc, char* argv[])
     mainWindow.installEventFilter(titleFilter);
 
     // Força título, patches visuais e conexão de entradas após inicializar
-    QTimer::singleShot(0, &mainWindow, [&mainWindow, &iconPath, noteEditor, busyOverlay]() {
+    QTimer::singleShot(0, &mainWindow, [&mainWindow, &iconPath, busyOverlay]() {
         // Título com versão
         QString t = mainWindow.windowTitle();
         t.replace("KeePassXC", APP_NAME);
@@ -227,8 +340,18 @@ int main(int argc, char* argv[])
         // WelcomeWidget: texto de boas-vindas + ícone
         patchWelcomeWidget(&mainWindow, iconPath);
 
-        // Conecta seleção de entrada → painel de notas
-        connectEntryToNotes(&mainWindow, noteEditor);
+        // Conecta seleção de entrada → aba Notas (criada por setupNotesTab)
+        connectEntryToNotes(&mainWindow);
+
+        // Fallback: garante que as abas são criadas mesmo se o sinal falhar
+        QTimer::singleShot(800, &mainWindow, [&mainWindow]() {
+            auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+            if (!dbTabWidget) return;
+            for (auto* dbWidget : dbTabWidget->findChildren<DatabaseWidget*>()) {
+                if (!dbWidget->findChild<NoteEditorWidget*>())
+                    connectDbWidget(dbWidget);
+            }
+        });
 
         // Intercepta ação de import — mostra overlay antes do freeze
         auto* actionImport = mainWindow.findChild<QAction*>("actionImport");
@@ -245,12 +368,18 @@ int main(int argc, char* argv[])
     // ── Menu CfdmNote ─────────────────────────────────────────────────────────
     QMenu* cfdmMenu = new QMenu(QObject::tr("&CfdmNote"), &mainWindow);
 
-    // Mostrar/ocultar painel de notas
-    QAction* actNotes = cfdmMenu->addAction(QObject::tr("Painel de &Notas"));
-    actNotes->setCheckable(true);
-    actNotes->setChecked(true);
+    // Abrir aba Notas da entrada selecionada (Ctrl+F9)
+    QAction* actNotes = cfdmMenu->addAction(
+        QIcon::fromTheme("text-editor"),
+        QObject::tr("&Notas da entrada"));
     actNotes->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_F9));
-    QObject::connect(actNotes, &QAction::toggled, noteDock, &QDockWidget::setVisible);
+    QObject::connect(actNotes, &QAction::triggered, [&mainWindow]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTabWidget || !dbTabWidget->currentDatabaseWidget()) return;
+        auto* ntw = dbTabWidget->currentDatabaseWidget()
+                        ->findChild<QTabWidget*>("notesTabWidget");
+        if (ntw) ntw->setCurrentIndex(ntw->currentIndex() == 1 ? 0 : 1);
+    });
 
     cfdmMenu->addSeparator();
 
@@ -305,6 +434,91 @@ int main(int argc, char* argv[])
     QObject::connect(actVault, &QAction::triggered, [&mainWindow]() {
         VaultDialog dlg(&mainWindow);
         dlg.exec();
+    });
+
+    cfdmMenu->addSeparator();
+
+    // Importar CSV (com barra de progresso real)
+    QAction* actImportCsv = cfdmMenu->addAction(
+        QIcon::fromTheme("document-import"),
+        QObject::tr("&Importar CSV...")
+    );
+    QObject::connect(actImportCsv, &QAction::triggered, [&mainWindow]() {
+        auto* tabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        QSharedPointer<Database> db;
+        if (tabWidget && tabWidget->currentDatabaseWidget()) {
+            db = tabWidget->currentDatabaseWidget()->database();
+        }
+        CsvImportDialog::runImport(db, &mainWindow, &mainWindow);
+    });
+
+    cfdmMenu->addSeparator();
+
+    // Definir ícone personalizado para a entrada selecionada (suporta GIF animado)
+    QAction* actCustomIcon = cfdmMenu->addAction(
+        QIcon::fromTheme("preferences-desktop-icons"),
+        QObject::tr("Definir &ícone da entrada...")
+    );
+    QObject::connect(actCustomIcon, &QAction::triggered, [&mainWindow]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTabWidget || !dbTabWidget->currentDatabaseWidget()) return;
+
+        auto* dbWidget = dbTabWidget->currentDatabaseWidget();
+        Entry* entry = dbWidget->currentSelectedEntry();
+        if (!entry) {
+            QMessageBox::information(&mainWindow, QObject::tr("Definir ícone"),
+                QObject::tr("Selecione uma entrada primeiro."));
+            return;
+        }
+
+        const QString path = QFileDialog::getOpenFileName(
+            &mainWindow,
+            QObject::tr("Selecionar ícone personalizado"),
+            QDir::homePath(),
+            QObject::tr("Imagens (*.gif *.png *.jpg *.jpeg *.bmp *.svg *.ico *.webp);;"
+                        "Todos os arquivos (*)")
+        );
+        if (path.isEmpty()) return;
+
+        QFile f(path);
+        if (!f.open(QIODevice::ReadOnly)) {
+            QMessageBox::warning(&mainWindow, QObject::tr("Erro"),
+                QObject::tr("Não foi possível abrir o arquivo."));
+            return;
+        }
+        const QByteArray iconBytes = f.readAll();
+        f.close();
+        if (iconBytes.isEmpty()) return;
+
+        // GIF: armazena bytes originais (animação preservada na aba Notas)
+        // Outros formatos: converte para PNG para compatibilidade máxima
+        QByteArray finalBytes = iconBytes;
+        if (!path.toLower().endsWith(".gif")) {
+            QImage img;
+            img.loadFromData(iconBytes);
+            if (!img.isNull()) {
+                QBuffer buf;
+                buf.open(QIODevice::WriteOnly);
+                img.save(&buf, "PNG");
+                if (!buf.data().isEmpty()) finalBytes = buf.data();
+            }
+        }
+
+        auto db = dbWidget->database();
+        const QUuid iconUuid = QUuid::createUuid();
+        db->metadata()->addCustomIcon(
+            iconUuid, finalBytes,
+            QFileInfo(path).fileName(),
+            QDateTime::currentDateTimeUtc()
+        );
+        entry->setIcon(iconUuid);
+
+        QString saveErr;
+        db->save(Database::Atomic, {}, &saveErr);
+        if (!saveErr.isEmpty()) {
+            QMessageBox::warning(&mainWindow, QObject::tr("Aviso"),
+                QObject::tr("Ícone definido, mas erro ao salvar: %1").arg(saveErr));
+        }
     });
 
     cfdmMenu->addSeparator();
