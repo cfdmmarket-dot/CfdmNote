@@ -193,35 +193,59 @@ void BackupDialog::refreshDrives()
     m_driveCombo->clear();
     m_driveCombo->addItem(tr("— Selecione uma mídia —"), QString());
 
+    // Sistemas de arquivos virtuais/do sistema — ignorar
+    static const QStringList SKIP_FS = {
+        "tmpfs","sysfs","proc","devtmpfs","devpts","cgroup","cgroup2",
+        "pstore","efivarfs","bpf","overlay","squashfs","fuse.gvfsd-fuse",
+        "fuse.portal","hugetlbfs","mqueue","debugfs","tracefs","securityfs",
+        "fusectl","configfs","ramfs","autofs"
+    };
+
+    // Caminhos do sistema — ignorar
+    static const QStringList SKIP_PATHS = {
+        "/boot","/boot/efi","/snap","/run","/sys",
+        "/proc","/dev","/tmp","/var/lib/docker"
+    };
+
     for (const QStorageInfo& vol : QStorageInfo::mountedVolumes()) {
         if (!vol.isValid() || !vol.isReady()) continue;
-        if (vol.isRoot()) continue;  // ignora disco do sistema
 
         const QString mount  = vol.rootPath();
         const QString device = QString::fromLocal8Bit(vol.device());
-        const QString label  = vol.name().trimmed();
+        const QString fsType = QString::fromLocal8Bit(vol.fileSystemType());
 
-        // Prioriza mídias em /media/ ou /run/media/ (removíveis típicas no Linux)
-        const bool likelyRemovable = mount.startsWith("/media/")
-                                  || mount.startsWith("/run/media/")
-                                  || mount.startsWith("/mnt/");
+        // Pula sistemas virtuais
+        if (SKIP_FS.contains(fsType)) continue;
 
-        QString display;
-        if (!label.isEmpty())
-            display = QString("%1  [%2]  →  %3").arg(label, device, mount);
-        else
-            display = QString("%1  →  %2").arg(device, mount);
+        // Pula caminhos de sistema
+        bool skipPath = false;
+        for (const QString& p : SKIP_PATHS)
+            if (mount == p || mount.startsWith(p + "/")) { skipPath = true; break; }
+        if (skipPath) continue;
 
-        if (likelyRemovable)
-            display.prepend("💿  ");
-        else
-            display.prepend("🖴  ");
+        // Só aceita dispositivos físicos reais (/dev/sd*, /dev/nvme*, /dev/hd*, /dev/mmcblk*)
+        if (!device.startsWith("/dev/")) continue;
+
+        const QString label = vol.name().trimmed();
+
+        // Removível = montado em /media/ ou /run/media/ ou /mnt/
+        const bool removable = mount.startsWith("/media/")
+                            || mount.startsWith("/run/media/")
+                            || mount.startsWith("/mnt/");
+
+        // Display: "Label (device)" ou só "device"
+        const QString driveName = label.isEmpty()
+            ? device
+            : QString("%1  (%2)").arg(label, device);
+
+        const QString display = QString("%1  %2  →  %3")
+            .arg(removable ? "💿" : "🖴", driveName, mount);
 
         m_driveCombo->addItem(display, mount);
     }
 
     if (m_driveCombo->count() == 1)
-        m_driveCombo->addItem(tr("(nenhuma mídia externa detectada)"), QString());
+        m_driveCombo->addItem(tr("(nenhuma unidade externa detectada)"), QString());
 }
 
 void BackupDialog::onDriveSelected(int index)
