@@ -30,6 +30,8 @@
 #include <QDesktopServices>
 #include <QStatusBar>
 #include <QPushButton>
+#include <QMessageBox>
+#include <QAbstractButton>
 
 #include "core/Metadata.h"
 #include "core/EntryAttributes.h"
@@ -60,7 +62,7 @@
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.7.0";
+static const QString APP_VERSION = "1.7.1";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -137,6 +139,47 @@ protected:
                 if (changed) {
                     w->setWindowTitle(title);
                     return true;
+                }
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
+
+/**
+ * MessageBoxFixer — garante que botões de QMessageBox sempre tenham texto visível.
+ * Corrige o popup "Unsaved Changes" do KeePassXC cujos botões aparecem sem label
+ * em certos temas do sistema Linux.
+ */
+class MessageBoxFixer : public QObject
+{
+public:
+    explicit MessageBoxFixer(QObject* parent = nullptr) : QObject(parent) {}
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override
+    {
+        if (event->type() == QEvent::Polish) {
+            auto* box = qobject_cast<QMessageBox*>(obj);
+            if (!box) return false;
+
+            for (QAbstractButton* btn : box->buttons()) {
+                if (!btn->text().trimmed().isEmpty()) continue;
+
+                // Determina o texto pelo papel do botão no diálogo
+                switch (box->buttonRole(btn)) {
+                    case QMessageBox::AcceptRole:
+                    case QMessageBox::YesRole:
+                        btn->setText(QObject::tr("Salvar"));   break;
+                    case QMessageBox::DestructiveRole:
+                    case QMessageBox::NoRole:
+                        btn->setText(QObject::tr("Descartar")); break;
+                    case QMessageBox::RejectRole:
+                        btn->setText(QObject::tr("Cancelar"));  break;
+                    case QMessageBox::ApplyRole:
+                        btn->setText(QObject::tr("Aplicar"));   break;
+                    default:
+                        btn->setText(QObject::tr("OK"));        break;
                 }
             }
         }
@@ -223,6 +266,24 @@ static NoteEditorWidget* setupNotesTab(DatabaseWidget* dbWidget)
     linksPanel->setObjectName("linksPanelWidget");
     tabWidget->addTab(linksPanel,
                       QIcon::fromTheme("folder-remote"), QObject::tr("Links"));
+
+    // ── Garante que o painel de abas nunca some ────────────────────────────
+    tabWidget->setMinimumHeight(160);
+    splitter->setCollapsible(idx, false);   // impede colapso total
+
+    // Define tamanho inicial: 55% lista de entradas / 45% painel de abas
+    QTimer::singleShot(0, splitter, [splitter, idx]() {
+        const int total = splitter->height();
+        if (total < 200) return;
+        QList<int> sizes = splitter->sizes();
+        // Só ajusta se o painel estiver muito pequeno (< 160px)
+        if (sizes.value(idx, 0) < 160) {
+            sizes[0]   = static_cast<int>(total * 0.55);
+            if (idx < sizes.size())
+                sizes[idx] = total - sizes[0];
+            splitter->setSizes(sizes);
+        }
+    });
 
     return noteEditor;
 }
@@ -356,6 +417,9 @@ static void connectEntryToNotes(MainWindow* mw)
 int main(int argc, char* argv[])
 {
     Application app(argc, argv);
+
+    // Corrige botões sem texto em QMessageBox (tema do sistema)
+    app.installEventFilter(new MessageBoxFixer(&app));
 
     // Bootstrap do motor (crypto, config, recursos, traduções, etc.)
     Bootstrap::bootstrap();
