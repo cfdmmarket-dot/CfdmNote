@@ -378,17 +378,17 @@ QMenu::separator {
 QMenu::icon { padding-left: 6px; }
 
 /* ── Toolbar ───────────────────────────────────────── */
-/* Fundo navy escuro — texto e ícones brancos */
+/* Azul médio: ícones KeePassXC (escuros) visíveis + texto branco legível */
 QToolBar {
     background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #1e3a5f, stop:1 #17304f);
+        stop:0 #4a7fb5, stop:1 #3a6a9a);
     border: none;
     border-bottom: 2px solid #2c5282;
     spacing: 3px;
     padding: 2px 4px;
 }
 QToolBar::separator {
-    background: #4a86c8;
+    background: #7aaed6;
     width: 1px;
     margin: 4px 3px;
 }
@@ -399,12 +399,12 @@ QToolButton {
     padding: 4px 8px;
 }
 QToolButton:hover {
-    background: #2c5282;
+    background: #5a90c5;
     color: #ffffff;
-    border: 1px solid #4a86c8;
+    border: 1px solid #7aaed6;
 }
 QToolButton:pressed, QToolButton:checked {
-    background: #3182ce;
+    background: #2c5282;
     color: white;
 }
 QToolButton[popupMode="1"] {

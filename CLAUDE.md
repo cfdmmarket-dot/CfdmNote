@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v2.2.6
+## Versão atual: v2.2.7
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -90,6 +90,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v2.2.4 — Botão toolbar: ⚡ CfdmNote → 🤖 IA (reservado para CFDM Triplex, exibe info da feature 012) ✓
 - [x] v2.2.5 — Fix: overlay "Aguarde" não aparece mais ao abrir banco (removida conexão actionImport sem close, adicionado failsafe hide 3s) ✓
 - [x] v2.2.6 — Fix: NavyBlue toolbar escura com texto/ícones brancos (fundo #1e3a5f, cor #ffffff) ✓
+- [x] v2.2.7 — Fix: NavyBlue toolbar azul médio (#4a7fb5) — ícones KeePassXC visíveis + texto branco ✓
 - [x] v2.2.6 — Fix: MindMap estilos CSS dos nós corrigidos para camelCase (borderRadius, fontSize, fontWeight) ✓
 - [x] v2.2.6 — Fix: MindMap delay 300ms antes de injectMap() garante layout do WebView ✓
 - [x] v2.2.0 — Git inicializado com histórico completo desde v1.0.0 ✓
