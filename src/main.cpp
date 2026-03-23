@@ -15,6 +15,7 @@
 #include <QFileDialog>
 #include <QDir>
 #include <QSettings>
+#include <QApplication>
 
 // Motor interno do CfdmNote
 #include "gui/Application.h"
@@ -192,12 +193,29 @@ int main(int argc, char* argv[])
     noteDock->setWidget(noteEditor);
     mainWindow.addDockWidget(Qt::RightDockWidgetArea, noteDock);
 
+    // ── Overlay de carregamento (aparece em operações longas) ─────────────────
+    auto* busyOverlay = new QLabel(&mainWindow);
+    busyOverlay->setText(QObject::tr(
+        "⏳  Aguarde — sistema ocupado...\n"
+        "Importando dados. O app pode parecer travado.\n"
+        "Não feche a janela."));
+    busyOverlay->setAlignment(Qt::AlignCenter);
+    busyOverlay->setStyleSheet(
+        "QLabel { background: rgba(0,0,0,180); color: white; font-size: 15px; "
+        "font-weight: bold; border-radius: 10px; padding: 24px; }");
+    busyOverlay->setVisible(false);
+    busyOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+    busyOverlay->setGeometry(mainWindow.rect());
+
+    // Redimensiona overlay junto com a janela
+    QObject::connect(&mainWindow, &QMainWindow::destroyed, busyOverlay, &QLabel::deleteLater);
+
     // Instala filtro de título (substitui "KeePassXC" → "CfdmNote")
     auto* titleFilter = new TitleFilter(&mainWindow);
     mainWindow.installEventFilter(titleFilter);
 
     // Força título, patches visuais e conexão de entradas após inicializar
-    QTimer::singleShot(0, &mainWindow, [&mainWindow, &iconPath, noteEditor]() {
+    QTimer::singleShot(0, &mainWindow, [&mainWindow, &iconPath, noteEditor, busyOverlay]() {
         // Título com versão
         QString t = mainWindow.windowTitle();
         t.replace("KeePassXC", APP_NAME);
@@ -211,6 +229,17 @@ int main(int argc, char* argv[])
 
         // Conecta seleção de entrada → painel de notas
         connectEntryToNotes(&mainWindow, noteEditor);
+
+        // Intercepta ação de import — mostra overlay antes do freeze
+        auto* actionImport = mainWindow.findChild<QAction*>("actionImport");
+        if (actionImport) {
+            QObject::connect(actionImport, &QAction::triggered, busyOverlay, [busyOverlay, &mainWindow]() {
+                busyOverlay->setGeometry(mainWindow.rect());
+                busyOverlay->raise();
+                busyOverlay->setVisible(true);
+                QApplication::processEvents();
+            });
+        }
     });
 
     // ── Menu CfdmNote ─────────────────────────────────────────────────────────
