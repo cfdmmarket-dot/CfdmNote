@@ -35,6 +35,39 @@ function initMindMap(data) {
       mind = null;
     }
 
+    var cfdmTheme = {
+      name: 'CfdmNote',
+      type: 'light',
+      palette: [
+        '#3182ce', // azul
+        '#38a169', // verde
+        '#805ad5', // roxo
+        '#dd6b20', // laranja (só 1 de 8)
+        '#319795', // teal
+        '#d69e2e', // amarelo
+        '#e53e3e', // vermelho
+        '#667eea'  // índigo
+      ],
+      cssVar: {
+        '--node-gap-x':   '12px',
+        '--node-gap-y':   '6px',
+        '--main-gap-x':   '32px',
+        '--main-gap-y':   '18px',
+        '--root-radius':  '20px',
+        '--main-radius':  '12px',
+        '--root-color':   '#ffffff',
+        '--root-bgcolor': '#2b6cb0',
+        '--main-color':   '#1a202c',
+        '--main-bgcolor': '#ffffff',
+        '--main-bgcolor-transparent': 'rgba(255,255,255,0.85)',
+        '--bgcolor':      '#f8fafc',
+        '--selected':     '#4299e1',
+        '--color':        '#4a5568',
+        '--topic-padding':'3px 8px',
+        '--map-padding':  '40px 60px'
+      }
+    };
+
     mind = new ME({
       el: '#map',
       direction: ME.SIDE !== undefined ? ME.SIDE : 2,
@@ -43,7 +76,7 @@ function initMindMap(data) {
       toolBar: false,
       nodeMenu: false,
       keypress: false,
-      theme: ME.THEME,
+      theme: cfdmTheme,
     });
     mind.init(data);
 
