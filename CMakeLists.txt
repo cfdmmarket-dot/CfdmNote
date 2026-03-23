@@ -52,7 +52,9 @@ set(CFDMNOTE_SRCS
     src/gui/BackupDialog.cpp
     src/gui/ShareDialog.cpp
     src/gui/ExportNoteDialog.cpp
+    src/gui/ReminderDialog.cpp
     src/gui/NoteEditorWidget.cpp
+    src/reminders/ReminderManager.cpp
     src/notes/NoteManager.cpp
     src/db/MainDatabaseManager.cpp
 )

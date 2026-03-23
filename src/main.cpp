@@ -51,10 +51,12 @@
 #include "gui/BackupDialog.h"
 #include "gui/ShareDialog.h"
 #include "gui/ExportNoteDialog.h"
+#include "gui/ReminderDialog.h"
+#include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.4.0";
+static const QString APP_VERSION = "1.5.0";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -273,6 +275,13 @@ static void connectDbWidget(DatabaseWidget* dbWidget)
         if (!noteEditor) {
             noteEditor = dbWidget->findChild<NoteEditorWidget*>();
             if (!noteEditor) return;
+        }
+
+        // Registra banco no ReminderManager para verificar lembretes
+        if (dbWidget->database()) {
+            ReminderManager::instance().setDatabase(
+                dbWidget->database(),
+                dbWidget->window());
         }
 
         // Debounce timer para salvar comentário após 600ms sem digitar
@@ -610,6 +619,27 @@ int main(int argc, char* argv[])
                 ? QObject::tr("%1 arquivo(s) importado(s) com sucesso.").arg(count)
                 : QObject::tr("%1 arquivo(s) importado(s). Aviso: %2").arg(count).arg(saveErr));
     });
+
+    // Definir lembrete na entrada (004)
+    QAction* actReminder = cfdmMenu->addAction(
+        QIcon::fromTheme("appointment-new"),
+        QObject::tr("Definir &lembrete...")
+    );
+    actReminder->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R));
+    QObject::connect(actReminder, &QAction::triggered, [&mainWindow]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTabWidget || !dbTabWidget->currentDatabaseWidget()) return;
+        auto* dbWidget = dbTabWidget->currentDatabaseWidget();
+        Entry* entry = dbWidget->currentSelectedEntry();
+        if (!entry) {
+            QMessageBox::information(&mainWindow, QObject::tr("Lembrete"),
+                QObject::tr("Selecione uma entrada primeiro."));
+            return;
+        }
+        ReminderDialog::editReminder(entry, dbWidget->database(), &mainWindow);
+    });
+
+    cfdmMenu->addSeparator();
 
     // Exportar nota criptografada (008)
     QAction* actExportNote = cfdmMenu->addAction(

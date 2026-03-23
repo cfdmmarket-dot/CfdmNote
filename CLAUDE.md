@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v1.4.0
+## Versão atual: v1.5.0
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -48,6 +48,9 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v1.4.0 — Pesquisar na web (Google/DuckDuckGo/Perplexity/ChatGPT) com título da entrada ✓
 - [x] v1.4.0 — Exportar nota criptografada: AES-256-GCM + PBKDF2-SHA256 → arquivo .cfdmnote ✓
 - [x] v1.4.0 — Compartilhar entrada via WhatsApp/Telegram/Discord/Facebook (sem senha) ✓
+- [x] v1.5.0 — Lembretes por entrada: data/hora, recorrência, notificação com adiar/WhatsApp/Telegram ✓
+- [x] v1.5.0 — ReminderManager: verifica a cada 60s, reagenda recorrentes, adiar 1h/8h ✓
+- [x] v1.5.0 — Google Calendar: botão abre browser com evento pré-preenchido (sem OAuth) ✓
 
 ## Arquitetura atual
 ```
@@ -82,6 +85,7 @@ DatabaseWidget (por banco aberto)
 | Pesquisar na web... | — | Submenu: Google / DuckDuckGo / Perplexity / ChatGPT |
 | Exportar nota... | — | ExportNoteDialog: .txt ou .cfdmnote (AES-256-GCM) |
 | Compartilhar entrada... | — | ShareDialog: WhatsApp/Telegram/Discord/Facebook |
+| Definir lembrete... | Ctrl+Shift+R | ReminderDialog: data/hora/recorrência/Google Calendar |
 | Definir ícone da entrada... | — | Ícone personalizado (PNG/GIF/etc) |
 | Sobre CfdmNote | — | Caixa sobre |
 
