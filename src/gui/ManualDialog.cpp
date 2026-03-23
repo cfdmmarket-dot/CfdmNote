@@ -211,8 +211,13 @@ ManualDialog::ManualDialog(QWidget* parent)
     auto* footerLayout = new QHBoxLayout(footer);
     footerLayout->setContentsMargins(12, 4, 12, 4);
 
-    auto* versionLabel = new QLabel(tr("CfdmNote v1.5.0 — Manual de Consulta"));
+    auto* versionLabel = new QLabel(tr("CfdmNote v2.1.0 — Manual de Consulta"));
     versionLabel->setStyleSheet("font-size: 10px; color: #718096;");
+
+    auto* btnDevlog = new QPushButton(tr("📋 Diário de Dev"));
+    btnDevlog->setFixedHeight(28);
+    btnDevlog->setToolTip(tr("Abrir o diário completo de desenvolvimento (DEVLOG.md)"));
+    btnDevlog->setStyleSheet("font-size: 11px; padding: 0 12px; color: #2c5282;");
 
     auto* btnClose = new QPushButton(tr("Fechar"));
     btnClose->setFixedHeight(28);
@@ -220,6 +225,7 @@ ManualDialog::ManualDialog(QWidget* parent)
 
     footerLayout->addWidget(versionLabel);
     footerLayout->addStretch();
+    footerLayout->addWidget(btnDevlog);
     footerLayout->addWidget(btnClose);
     mainLayout->addWidget(footer);
 
@@ -234,6 +240,22 @@ ManualDialog::ManualDialog(QWidget* parent)
     connect(btnPrev,  &QPushButton::clicked, this, &ManualDialog::onSearchPrev);
     connect(btnClear, &QPushButton::clicked, this, &ManualDialog::onClearSearch);
     connect(btnClose, &QPushButton::clicked, this, &QDialog::accept);
+    connect(btnDevlog, &QPushButton::clicked, this, [this]() {
+        QFile f(":/cfdmnote/DEVLOG.md");
+        QString md;
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text))
+            md = QString::fromUtf8(f.readAll());
+        else {
+            QFile f2(QApplication::applicationDirPath() + "/../DEVLOG.md");
+            if (f2.open(QIODevice::ReadOnly | QIODevice::Text))
+                md = QString::fromUtf8(f2.readAll());
+        }
+        if (!md.isEmpty()) {
+            m_browser->setHtml(renderToHtml(md));
+            buildToc(md);
+            m_tocList->clearSelection();
+        }
+    });
 
     // Atalho Esc fecha o dialog
     new QShortcut(QKeySequence(Qt::Key_Escape), this, SLOT(accept()));

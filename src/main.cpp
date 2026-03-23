@@ -45,6 +45,8 @@
 
 #include "core/Metadata.h"
 #include "core/EntryAttributes.h"
+#include "core/Group.h"
+#include "gui/group/GroupModel.h"
 
 // Motor interno do CfdmNote
 #include "gui/Application.h"
@@ -70,6 +72,9 @@
 #include "gui/ReminderDialog.h"
 #include "gui/ManualDialog.h"
 #include "gui/DatabaseInfoDialog.h"
+#include "gui/MindMapDialog.h"
+#include "gui/RoadmapDialog.h"
+#include "gui/WhiteboardDialog.h"
 #include "gui/PowerSearchDialog.h"
 #include "gui/AudioCaptureDialog.h"
 #include "gui/TranslateDialog.h"
@@ -77,6 +82,7 @@
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
 #include "CfdmVersion.h"
+#include "gui/ThemeManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
 static const QString APP_VERSION = CFDMNOTE_VERSION;
@@ -220,24 +226,136 @@ protected:
         const int   row   = idx.row();
         const int   cols  = qMin(model->columnCount(), 8);
 
-        QStringList lines;
+        // Coleta campos visíveis (exceto senha)
+        QStringList fields;
         for (int c = 0; c < cols; ++c) {
             const QModelIndex ci  = model->index(row, c, idx.parent());
             const QString     hdr = model->headerData(c, Qt::Horizontal).toString();
             const QString     val = ci.data(Qt::DisplayRole).toString();
-            // Omite senha mascarada e colunas vazias
             if (hdr.isEmpty() || val.isEmpty() || val.startsWith(QChar(0x25CF)))
                 continue;
-            lines << QString("<b>%1:</b> %2")
-                        .arg(hdr.toHtmlEscaped(),
-                             val.left(120).toHtmlEscaped());
+            fields << QString("<b>%1:</b> %2")
+                        .arg(hdr.toHtmlEscaped(), val.left(120).toHtmlEscaped());
         }
-        if (lines.isEmpty()) return false;
+        if (fields.isEmpty()) return false;
 
-        QToolTip::showText(he->globalPos(),
-            "<div style='font-size:12px;line-height:1.7'>" +
-            lines.join("<br>") + "</div>",
-            view, view->visualRect(idx), 6000);
+        // Título em destaque (primeira coluna)
+        const QString title = model->index(row, 0, idx.parent())
+                                   .data(Qt::DisplayRole).toString();
+
+        QString tip = QString(
+            "<div style='font-size:12px;min-width:280px'>"
+            "<b style='font-size:14px;color:#2b6cb0'>🔑 %1</b><hr style='margin:4px 0'>")
+            .arg(title.toHtmlEscaped());
+
+        // Campos normais (sem o título que já está no cabeçalho)
+        QStringList bodyFields;
+        for (int c = 1; c < cols; ++c) {
+            const QModelIndex ci  = model->index(row, c, idx.parent());
+            const QString     hdr = model->headerData(c, Qt::Horizontal).toString();
+            const QString     val = ci.data(Qt::DisplayRole).toString();
+            if (hdr.isEmpty() || val.isEmpty() || val.startsWith(QChar(0x25CF))) continue;
+            bodyFields << QString("<b>%1:</b> <span style='color:#2d3748'>%2</span>")
+                            .arg(hdr.toHtmlEscaped(), val.left(120).toHtmlEscaped());
+        }
+        tip += bodyFields.join("<br>");
+
+        // Extra: tenta obter Entry* para mostrar tags, comentário, nota
+        // O modelo pode expor Entry* via UserRole
+        const QVariant userRole = idx.data(Qt::UserRole);
+        Entry* entry = nullptr;
+        if (userRole.isValid() && userRole.canConvert<Entry*>())
+            entry = userRole.value<Entry*>();
+
+        // Alternativa: busca Entry* pelo ponteiro interno do índice
+        if (!entry) {
+            // Em alguns modelos Qt, o internalPointer aponta para o objeto
+            if (idx.internalPointer())
+                entry = static_cast<Entry*>(idx.internalPointer());
+        }
+
+        if (entry) {
+            const QString tags    = entry->tags();
+            const QString comment = entry->attributes()->value("CfdmNote::Comment");
+            const QString notes   = entry->notes();
+
+            if (!tags.isEmpty())
+                tip += QString("<br><b>🏷️ Tags:</b> <span style='color:#276749'>%1</span>")
+                       .arg(tags.toHtmlEscaped());
+
+            if (!comment.isEmpty())
+                tip += QString("<br><b>💬 Comentário:</b> <i style='color:#4a5568'>%1</i>")
+                       .arg(comment.left(150).toHtmlEscaped());
+
+            if (!notes.isEmpty()) {
+                const QString preview = notes.left(180).replace('\n', ' ');
+                tip += QString("<br><b>📝 Nota:</b> <span style='color:#553c9a'>%1%2</span>")
+                       .arg(preview.toHtmlEscaped(),
+                            notes.length() > 180 ? "…" : "");
+            }
+
+            // Modificado
+            const QDateTime lastMod = entry->timeInfo().lastModificationTime().toLocalTime();
+            tip += QString("<br><span style='color:#a0aec0;font-size:10px'>"
+                           "✏️ Modificado: %1</span>")
+                   .arg(lastMod.toString("dd/MM/yyyy HH:mm"));
+        }
+
+        tip += "</div>";
+
+        QToolTip::showText(he->globalPos(), tip, view, view->visualRect(idx), 8000);
+        ev->accept();
+        return true;
+    }
+};
+
+// ── Tooltip rico nos grupos (hover na árvore de grupos) ─────────────────────
+class GroupTooltipFilter : public QObject {
+    Q_OBJECT
+protected:
+    bool eventFilter(QObject* obj, QEvent* ev) override {
+        if (ev->type() != QEvent::ToolTip) return false;
+        auto* view = qobject_cast<QTreeView*>(obj);
+        if (!view) return false;
+        auto* he  = static_cast<QHelpEvent*>(ev);
+        const QModelIndex idx = view->indexAt(he->pos());
+        if (!idx.isValid()) return false;
+
+        // Obtém Group* via GroupModel
+        auto* groupModel = qobject_cast<GroupModel*>(view->model());
+        if (!groupModel) return false;
+        Group* group = groupModel->groupFromIndex(idx);
+        if (!group) return false;
+
+        // Conta entradas diretas e recursivas
+        const int directEntries    = group->entries().count();
+        const int recursiveEntries = group->entriesRecursive().count();
+        const int subGroups        = group->children().count();
+
+        QString tip = QString(
+            "<div style='font-size:12px;line-height:1.8'>"
+            "<b style='font-size:13px'>📁 %1</b><br>")
+            .arg(group->name().toHtmlEscaped());
+
+        if (subGroups > 0)
+            tip += QString("<b>Subgrupos:</b> %1<br>").arg(subGroups);
+
+        tip += QString("<b>Entradas (diretas):</b> %1<br>").arg(directEntries);
+        if (recursiveEntries != directEntries)
+            tip += QString("<b>Entradas (total c/ subgrupos):</b> %1<br>").arg(recursiveEntries);
+
+        if (!group->notes().isEmpty())
+            tip += QString("<br><i style='color:#4a5568'>%1</i>")
+                   .arg(group->notes().left(200).toHtmlEscaped());
+
+        const QDateTime lastMod = group->timeInfo().lastModificationTime().toLocalTime();
+        tip += QString("<br><span style='color:#a0aec0;font-size:10px'>"
+                       "Modificado: %1</span>")
+               .arg(lastMod.toString("dd/MM/yyyy HH:mm"));
+
+        tip += "</div>";
+
+        QToolTip::showText(he->globalPos(), tip, view, view->visualRect(idx), 6000);
         ev->accept();
         return true;
     }
@@ -553,11 +671,19 @@ int main(int argc, char* argv[])
     app.setApplicationDisplayName(APP_NAME);
     app.setApplicationVersion(APP_VERSION);
 
+    // Bloqueia TODOS os mecanismos de auto-open do KeePassXC antes de qualquer
+    // evento ou janela.
+    config()->set(Config::OpenPreviousDatabasesOnStartup, false);
+    config()->remove(Config::LastOpenedDatabases);
+    config()->remove(Config::LastActiveDatabase);
+
     // ── Tela de login do CfdmNote (antes de qualquer janela) ─────────────────
     {
         AppLockDialog lockDlg;
+        lockDlg.setWindowFlag(Qt::WindowStaysOnTopHint, true);
         if (lockDlg.exec() != QDialog::Accepted)
             return 0;  // usuário fechou o diálogo — encerra o app
+        lockDlg.setWindowFlag(Qt::WindowStaysOnTopHint, false);
     }
 
     // ── Ícone do CfdmNote (substitui o ícone do KeePassXC em toda a app) ──────
@@ -688,7 +814,7 @@ int main(int argc, char* argv[])
         QObject::tr("&Abrir Cofre...")
     );
     actOpenVault->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O));
-    QObject::connect(actOpenVault, &QAction::triggered, [&mainWindow]() {
+    QObject::connect(actOpenVault, &QAction::triggered, [&mainWindow, &app]() {
         // Usa o último cofre se existir, senão abre o seletor de arquivo
         QSettings s(AppLockDialog::configPath(), QSettings::IniFormat);
         QString path = s.value("vault/lastPath").toString();
@@ -704,6 +830,8 @@ int main(int argc, char* argv[])
         if (!path.isEmpty()) {
             VaultUnlockDialog dlg(path, &mainWindow, &mainWindow);
             dlg.exec();
+            // Cofre aberto → tema verde; fechado → volta ao azul
+            ThemeManager::apply(ThemeManager::Theme::VaultGreen, &app);
         }
     });
 
@@ -712,7 +840,7 @@ int main(int argc, char* argv[])
         QIcon::fromTheme("document-open"),
         QObject::tr("Abrir &outro cofre...")
     );
-    QObject::connect(actOpenOtherVault, &QAction::triggered, [&mainWindow]() {
+    QObject::connect(actOpenOtherVault, &QAction::triggered, [&mainWindow, &app]() {
         const QString path = QFileDialog::getOpenFileName(
             &mainWindow,
             QObject::tr("Abrir Cofre CfdmNote"),
@@ -722,6 +850,7 @@ int main(int argc, char* argv[])
         if (!path.isEmpty()) {
             VaultUnlockDialog dlg(path, &mainWindow, &mainWindow);
             dlg.exec();
+            ThemeManager::apply(ThemeManager::Theme::VaultGreen, &app);
         }
     });
 
@@ -745,6 +874,120 @@ int main(int argc, char* argv[])
     actBackup->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_B));
     QObject::connect(actBackup, &QAction::triggered, [&mainWindow]() {
         BackupDialog::runBackup(&mainWindow, &mainWindow);
+    });
+
+    // Criar Grupo com seletor de pai
+    QAction* actCreateGroup = cfdmMenu->addAction(
+        QIcon::fromTheme("folder-new"),
+        QObject::tr("📁 Criar &Grupo...")
+    );
+    actCreateGroup->setToolTip(QObject::tr(
+        "<b>📁 Criar Grupo</b><br><br>"
+        "Cria um novo grupo escolhendo onde ele ficará:<br>"
+        "na raiz ou dentro de qualquer grupo existente."));
+    actCreateGroup->setStatusTip(QObject::tr("Criar grupo com escolha do grupo pai"));
+    QObject::connect(actCreateGroup, &QAction::triggered, [&mainWindow]() {
+        auto* dbTab = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTab) return;
+        auto* dbWidget = dbTab->currentDatabaseWidget();
+        if (!dbWidget) return;
+        auto db = dbWidget->database();
+        if (!db) return;
+
+        // Dialog: nome + seletor de grupo pai
+        QDialog dlg(&mainWindow);
+        dlg.setWindowTitle(QObject::tr("Criar Grupo"));
+        dlg.setFixedWidth(380);
+        auto* lay = new QVBoxLayout(&dlg);
+        lay->setSpacing(12);
+        lay->setContentsMargins(20, 20, 20, 20);
+
+        auto* lblNome = new QLabel(QObject::tr("Nome do grupo:"));
+        lblNome->setStyleSheet("font-weight: bold;");
+        auto* editNome = new QLineEdit();
+        editNome->setPlaceholderText(QObject::tr("Ex: Trabalho, Pessoal, Projetos..."));
+        editNome->setFixedHeight(34);
+
+        auto* lblPai = new QLabel(QObject::tr("Criar dentro de:"));
+        lblPai->setStyleSheet("font-weight: bold;");
+        auto* cmbPai = new QComboBox();
+        cmbPai->setFixedHeight(34);
+
+        // Popula o combo com todos os grupos, indentado por nível
+        std::function<void(Group*, int)> addGroups = [&](Group* g, int depth) {
+            const QString indent = QString("  ").repeated(depth);
+            const QString icon = depth == 0 ? "🏠 " : "📁 ";
+            cmbPai->addItem(indent + icon + g->name(),
+                            QVariant::fromValue(static_cast<void*>(g)));
+            for (auto* child : g->children())
+                addGroups(child, depth + 1);
+        };
+        addGroups(db->rootGroup(), 0);
+
+        // Pré-seleciona o grupo atualmente ativo
+        auto* current = dbWidget->currentGroup();
+        if (current) {
+            for (int i = 0; i < cmbPai->count(); ++i) {
+                if (cmbPai->itemData(i).value<void*>() == static_cast<void*>(current)) {
+                    cmbPai->setCurrentIndex(i);
+                    break;
+                }
+            }
+        }
+
+        auto* errLbl = new QLabel();
+        errLbl->setStyleSheet("color: #e53e3e; font-size: 11px;");
+
+        auto* btnRow = new QHBoxLayout();
+        auto* btnOk = new QPushButton(QObject::tr("✅ Criar Grupo"));
+        btnOk->setDefault(true);
+        btnOk->setFixedHeight(36);
+        btnOk->setStyleSheet("QPushButton { background: #3182ce; color: white; border-radius: 5px; "
+                             "font-weight: bold; padding: 0 16px; } "
+                             "QPushButton:hover { background: #4299e1; }");
+        auto* btnCancel = new QPushButton(QObject::tr("Cancelar"));
+        btnCancel->setFixedHeight(36);
+        btnRow->addStretch();
+        btnRow->addWidget(btnCancel);
+        btnRow->addWidget(btnOk);
+
+        lay->addWidget(lblNome);
+        lay->addWidget(editNome);
+        lay->addWidget(lblPai);
+        lay->addWidget(cmbPai);
+        lay->addWidget(errLbl);
+        lay->addLayout(btnRow);
+
+        QObject::connect(btnCancel, &QPushButton::clicked, &dlg, &QDialog::reject);
+        QObject::connect(btnOk, &QPushButton::clicked, &dlg, [&]() {
+            const QString name = editNome->text().trimmed();
+            if (name.isEmpty()) {
+                errLbl->setText(QObject::tr("⚠️ Digite um nome para o grupo."));
+                editNome->setFocus();
+                return;
+            }
+            auto* parentGroup = static_cast<Group*>(
+                cmbPai->currentData().value<void*>());
+            if (!parentGroup) parentGroup = db->rootGroup();
+
+            auto* newGroup = new Group();
+            newGroup->setUuid(QUuid::createUuid());
+            newGroup->setName(name);
+            newGroup->setParent(parentGroup);
+
+            QString err;
+            db->save(Database::Atomic, {}, &err);
+            dlg.accept();
+
+            QMessageBox::information(&mainWindow,
+                QObject::tr("Grupo criado"),
+                QObject::tr("Grupo <b>%1</b> criado em <b>%2</b>.")
+                    .arg(name.toHtmlEscaped(),
+                         parentGroup->name().toHtmlEscaped()));
+        });
+
+        editNome->setFocus();
+        dlg.exec();
     });
 
     // Importar CSV (com barra de progresso real)
@@ -1240,8 +1483,136 @@ int main(int argc, char* argv[])
     QAction* before = mbActions.isEmpty() ? nullptr : mbActions.last();
     mainWindow.menuBar()->insertMenu(before, cfdmMenu);
 
-    // ── Desabilita auto-open do KeePassXC (usamos o nosso próprio) ──────────
-    config()->set(Config::OpenPreviousDatabasesOnStartup, false);
+    // ── Ferramentas Visuais ────────────────────────────────────────────────────
+    {
+        cfdmMenu->addSeparator();
+        auto* visualMenu = cfdmMenu->addMenu(
+            QIcon::fromTheme("applications-graphics"),
+            QObject::tr("🎨 &Ferramentas Visuais"));
+        visualMenu->setToolTipsVisible(true);
+
+        auto* actMindMap = visualMenu->addAction(
+            QIcon::fromTheme("view-presentation"), QObject::tr("🧠 Mapa Mental"));
+        actMindMap->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_M));
+        actMindMap->setToolTip(QObject::tr(
+            "<b>🧠 Mapa Mental</b> <i>(Ctrl+Shift+M)</i><br><br>"
+            "Visualiza conexões entre entradas como um grafo interativo.<br>"
+            "Conecta por domínio, tag ou referência manual.<br>"
+            "Nós arrastáveis. Exporta para SVG."));
+
+        auto* actRoadmap = visualMenu->addAction(
+            QIcon::fromTheme("view-column"), QObject::tr("🗺️ Roadmap / Kanban"));
+        actRoadmap->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
+        actRoadmap->setToolTip(QObject::tr(
+            "<b>🗺️ Roadmap / Kanban</b> <i>(Ctrl+Shift+K)</i><br><br>"
+            "Organiza entradas em colunas: Backlog → Em Progresso → Concluído → Aguardando.<br>"
+            "Mova cards entre colunas com clique direito.<br>"
+            "Status salvo no banco de dados."));
+
+        auto* actWhiteboard = visualMenu->addAction(
+            QIcon::fromTheme("draw-freehand"), QObject::tr("🖌️ Whiteboard"));
+        actWhiteboard->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_W));
+        actWhiteboard->setToolTip(QObject::tr(
+            "<b>🖌️ Whiteboard</b> <i>(Ctrl+Shift+W)</i><br><br>"
+            "Canvas livre para organizar entradas visualmente.<br>"
+            "Adicione sticky notes coloridas, arraste entradas e organize seu pensamento.<br>"
+            "Layout salvo automaticamente no banco."));
+
+        // Conecta às funções — usa o banco do DatabaseWidget ativo
+        auto getActiveDb = [&mainWindow]() -> QSharedPointer<Database> {
+            auto* dbTab = mainWindow.findChild<DatabaseTabWidget*>();
+            if (!dbTab) return {};
+            auto* dbWidget = dbTab->currentDatabaseWidget();
+            if (!dbWidget) return {};
+            return dbWidget->database();
+        };
+
+        auto getSelectedEntry = [&mainWindow]() -> Entry* {
+            auto* dbTab = mainWindow.findChild<DatabaseTabWidget*>();
+            if (!dbTab) return nullptr;
+            auto* dbWidget = dbTab->currentDatabaseWidget();
+            if (!dbWidget) return nullptr;
+            return dbWidget->currentSelectedEntry();
+        };
+
+        QObject::connect(actMindMap, &QAction::triggered, [&mainWindow, getActiveDb, getSelectedEntry]() {
+            auto db = getActiveDb();
+            if (!db) { QMessageBox::information(&mainWindow, QObject::tr("Mapa Mental"),
+                QObject::tr("Abra um banco de dados primeiro.")); return; }
+            MindMapDialog::showMap(db, &mainWindow);
+        });
+
+        QObject::connect(actRoadmap, &QAction::triggered, [&mainWindow, getActiveDb]() {
+            auto db = getActiveDb();
+            if (!db) { QMessageBox::information(&mainWindow, QObject::tr("Roadmap"),
+                QObject::tr("Abra um banco de dados primeiro.")); return; }
+            RoadmapDialog::showRoadmap(db, &mainWindow);
+        });
+
+        QObject::connect(actWhiteboard, &QAction::triggered, [&mainWindow, getActiveDb]() {
+            auto db = getActiveDb();
+            if (!db) { QMessageBox::information(&mainWindow, QObject::tr("Whiteboard"),
+                QObject::tr("Abra um banco de dados primeiro.")); return; }
+            WhiteboardDialog::showBoard(db, &mainWindow);
+        });
+    }
+
+    // ── Tema de cores (aplica antes de mostrar a janela) ──────────────────────
+    ThemeManager::apply(ThemeManager::saved(), &app);
+
+    // ── Submenu de temas no menu CfdmNote ────────────────────────────────────
+    {
+        cfdmMenu->addSeparator();
+        auto* themeMenu = cfdmMenu->addMenu(
+            QIcon::fromTheme("preferences-desktop-color"),
+            QObject::tr("🎨 &Tema de Cores"));
+        themeMenu->setToolTipsVisible(true);
+
+        auto* actDefault = themeMenu->addAction(QObject::tr("⬜ Padrão do Sistema"));
+        actDefault->setCheckable(true);
+        actDefault->setToolTip(QObject::tr(
+            "<b>⬜ Padrão do Sistema</b><br>Remove o tema personalizado e usa as cores "
+            "padrão do sistema operacional."));
+
+        auto* actNavy = themeMenu->addAction(QObject::tr("🌊 Navy Blue"));
+        actNavy->setCheckable(true);
+        actNavy->setToolTip(QObject::tr(
+            "<b>🌊 Navy Blue</b><br>Azul marinho escuro — toolbar clara para ícones visíveis.<br>"
+            "Ideal para uso prolongado. Aplicado automaticamente ao abrir o banco principal."));
+
+        auto* actSteel = themeMenu->addAction(QObject::tr("💠 Steel Blue (Suavizado)"));
+        actSteel->setCheckable(true);
+        actSteel->setToolTip(QObject::tr(
+            "<b>💠 Steel Blue</b><br>Azul mais suave e luminoso — fundo claro, acentos azul-aço.<br>"
+            "Ícones completamente visíveis. Ótimo para ambientes com bastante luz."));
+
+        themeMenu->addSeparator();
+        auto* infoAct = themeMenu->addAction(
+            QObject::tr("ℹ️  Verde: ativo automaticamente ao abrir Cofre"));
+        infoAct->setEnabled(false);
+
+        // Marca o tema atual
+        const ThemeManager::Theme currentTheme = ThemeManager::saved();
+        actDefault->setChecked(currentTheme == ThemeManager::Theme::Default);
+        actNavy->setChecked(currentTheme == ThemeManager::Theme::NavyBlue);
+        actSteel->setChecked(currentTheme == ThemeManager::Theme::SteelBlue);
+
+        auto* group = new QActionGroup(&mainWindow);
+        group->addAction(actDefault);
+        group->addAction(actNavy);
+        group->addAction(actSteel);
+        group->setExclusive(true);
+
+        QObject::connect(actDefault, &QAction::triggered, [&app]() {
+            ThemeManager::apply(ThemeManager::Theme::Default, &app);
+        });
+        QObject::connect(actNavy, &QAction::triggered, [&app]() {
+            ThemeManager::apply(ThemeManager::Theme::NavyBlue, &app);
+        });
+        QObject::connect(actSteel, &QAction::triggered, [&app]() {
+            ThemeManager::apply(ThemeManager::Theme::SteelBlue, &app);
+        });
+    }
 
     mainWindow.show();
 
@@ -1260,6 +1631,23 @@ int main(int argc, char* argv[])
             DatabaseInfoDialog::showInfo(&mainWindow, &mainWindow);
         });
     }
+
+    // ── Tooltip rico na GroupView (árvore de grupos) ──────────────────────────
+    QTimer::singleShot(800, &mainWindow, [&mainWindow]() {
+        // A GroupView é a QTreeView que NÃO está dentro de um DatabaseWidget
+        const auto allViews = mainWindow.findChildren<QTreeView*>();
+        for (auto* view : allViews) {
+            // Ignora views dentro de DatabaseWidget (essas são entry views)
+            if (view->parent() && qobject_cast<DatabaseWidget*>(
+                    view->parent()->parent())) continue;
+            // Instala apenas se ainda não tiver o filtro
+            bool already = false;
+            for (auto* ef : view->children())
+                if (qobject_cast<GroupTooltipFilter*>(ef)) { already = true; break; }
+            if (!already && qobject_cast<GroupModel*>(view->model()))
+                view->installEventFilter(new GroupTooltipFilter());
+        }
+    });
 
     // ── 022: Botão "⚡ CfdmNote" na toolbar principal ──────────────────────────
     // Injeta um QToolButton que abre o mesmo cfdmMenu, facilitando o acesso
@@ -1283,6 +1671,20 @@ int main(int argc, char* argv[])
             "QToolButton::menu-indicator { width: 0; }");
         btn->setToolTip(QObject::tr("Acesso rápido a todas as funções CfdmNote"));
         tb->addWidget(btn);
+    });
+
+    // ── Tema automático: volta ao Navy Blue quando cofre é fechado ────────────
+    QTimer::singleShot(600, &mainWindow, [&mainWindow, &app]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTabWidget) return;
+        QObject::connect(dbTabWidget, &DatabaseTabWidget::databaseClosed,
+                         &mainWindow, [&mainWindow, &app](const QString& closedPath) {
+            // Se o path fechado não é o banco principal → era um cofre → volta ao azul
+            QSettings s(AppLockDialog::configPath(), QSettings::IniFormat);
+            const QString mainPath = s.value("maindb/path").toString();
+            if (closedPath != mainPath)
+                ThemeManager::apply(ThemeManager::Theme::NavyBlue, &app);
+        });
     });
 
     // ── Abre banco principal (sem senha) → substitui a tela de boas-vendas ──

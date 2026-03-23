@@ -1,5 +1,5 @@
 # CfdmNote — Manual de Consulta
-**Versão 1.5.0** · Plataforma Linux · C++17 + Qt5
+**Versão 2.1.0** · Plataforma Linux · C++17 + Qt5
 
 ---
 
@@ -27,6 +27,8 @@
 20. [Estrutura Técnica do Sistema](#20-estrutura-técnica-do-sistema)
 21. [Roadmap — Próximas Funcionalidades](#21-roadmap--próximas-funcionalidades)
 22. [Compilar e Executar](#22-compilar-e-executar)
+23. [Roadmap Expandido — Obsidian + Evernote](#23-roadmap-expandido--obsidian--evernote)
+24. [Diário de Desenvolvimento](#24-diário-de-desenvolvimento)
 
 ---
 
@@ -634,6 +636,9 @@ Isso garante que o flag `m_modified` do KeePassXC é limpo corretamente, evitand
 | 017 | Arquiteto do Conhecimento: sugere tarefas e projetos com base no contexto | Planejado |
 | 018 | Seção do Saber: glossário, dicionário, tradutor, sinônimos | Planejado |
 
+> As features 012, 014, 015, 016 e 017 dependem da integração com o **CFDM Triplex** (motor de agentes de IA).
+> As demais (011, 013, 018) são independentes e podem ser implementadas a qualquer momento.
+
 ---
 
 ## 22. Compilar e Executar
@@ -668,5 +673,79 @@ cmake --build build -j$(nproc)
 
 ---
 
-*CfdmNote v1.5.0 — Desenvolvido por CFDM*
+## 23. Roadmap Expandido — Obsidian + Evernote
+
+### Inspirações do Obsidian
+
+| Feature | Descrição | Prioridade |
+|---------|-----------|------------|
+| **Grafo de Conhecimento** | Visualização gráfica das conexões entre entradas. Cada entrada é um nó; links relacionados são arestas. Permite ver clusters de conhecimento de forma visual | ⭐⭐⭐ |
+| **Templates de entrada** | Modelos reutilizáveis: "Projeto YouTube", "Receita", "Lead de Vendas", "Contato". Ao criar entrada nova, escolhe o template e os campos são preenchidos automaticamente | ⭐⭐⭐ |
+| **Backlinks automáticos** | Se a nota da entrada A menciona o título da entrada B, a entrada B exibe automaticamente "A te referencia" na aba 🔗 Relacionados — exatamente como o Obsidian faz | ⭐⭐⭐ |
+| **Daily Note** | Entrada do dia criada automaticamente ao abrir o app (data como título). Ideal para journaling, log diário, lista de tarefas do dia | ⭐⭐ |
+| **Canvas / Quadro Visual** | Arrastar entradas em um quadro livre (tipo Miro ou Obsidian Canvas) para criar mapas mentais e fluxos de trabalho visuais | ⭐⭐ |
+| **Modo Foco / Zen** | Abre só o editor de notas em tela cheia, sem distrações — ideal para escrever textos longos | ⭐ |
+
+### Inspirações do Evernote
+
+| Feature | Descrição | Prioridade |
+|---------|-----------|------------|
+| **Importar ENEX** | Importar arquivos `.enex` exportados do Evernote: notas, tags, notebooks, anexos e lembretes. Implementação com `QXmlStreamReader` — zero dependências extras | ⭐⭐⭐ |
+| **OCR em imagens** | Extrair texto de imagem ou screenshot e inserir na nota. Usa `tesseract-ocr` (disponível no Linux via apt) | ⭐⭐⭐ |
+| **Snippets de código** | Blocos de código com syntax highlight na visualização Markdown. O `cmark-gfm` já suporta — só precisa de CSS adicional | ⭐⭐⭐ |
+| **Web Clipper** | Salvar uma página web diretamente como entrada (via script de linha de comando ou extensão de browser) | ⭐⭐⭐ |
+| **Histórico de versões** | Ver versões anteriores de uma nota com diff por data — "Note History" do Evernote | ⭐⭐ |
+| **Anotar PDF/Imagem** | Abrir PDF ou imagem na aba Notas com anotações por cima (highlight, texto) | ⭐⭐ |
+| **Tags hierárquicas** | Tags com estrutura pai/filho: `viagem/europa/portugal` — como no Evernote e Obsidian | ⭐⭐ |
+
+### Importar do Evernote — como funciona
+
+O Evernote exporta no formato **ENEX** (arquivo `.enex`, que é XML):
+
+```
+Evernote (.enex)
+  └── <note>              → entrada no CfdmNote
+        ├── <title>       → título da entrada
+        ├── <content>     → texto HTML → convertido para Markdown
+        ├── <tag>         → tags da entrada
+        ├── <notebook>    → grupo no CfdmNote
+        ├── <reminder>    → CfdmNote::Reminder
+        └── <resource>    → anexos (base64) → aba Links
+```
+
+**Para exportar do Evernote:** Arquivo → Exportar notas → Formato ENEX
+**Depois:** CfdmNote → Menu CfdmNote → Importar ENEX *(feature a implementar)*
+
+---
+
+## 24. Diário de Desenvolvimento
+
+O CfdmNote mantém um **diário completo de desenvolvimento** que documenta cada sessão de trabalho: features discutidas, decisões técnicas, bugs encontrados e soluções aplicadas.
+
+### Onde encontrar
+
+- **Arquivo:** `DEVLOG.md` na raiz do projeto (`/home/cfdm/Proj-CfdmNote_/DEVLOG.md`)
+- **GitHub:** https://github.com/cfdmmarket-dot/CfdmNote/blob/main/DEVLOG.md
+
+### Estrutura de cada entrada
+
+Cada sessão no DEVLOG contém:
+- **O que foi feito** — lista das features implementadas
+- **Decisões técnicas** — *por que* cada solução foi escolhida
+- **Bugs corrigidos** — problema, causa e solução
+- **Discussões de roadmap** — sugestões avaliadas e priorizadas
+
+### Por que isto é importante
+
+O diário permite que:
+1. O desenvolvedor entenda o raciocínio por trás de cada escolha sem precisar ler o código inteiro
+2. Novos colaboradores se integrem rapidamente ao projeto
+3. Features rejeitadas ou adiadas sejam revisitadas com contexto completo
+4. O assistente de IA (Claude Code) mantenha continuidade entre sessões de trabalho
+
+> **Nota:** Este manual e o DEVLOG são atualizados a cada versão confirmada do CfdmNote, seguindo o workflow de versionamento: feature implementada → testada → bump de versão → commit `feat(vX.Y.Z)`.
+
+---
+
+*CfdmNote v2.1.0 — Desenvolvido por CFDM*
 *Manual atualizado em 2026-03-23*

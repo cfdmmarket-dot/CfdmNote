@@ -51,6 +51,9 @@ set(CFDMNOTE_SRCS
     src/gui/LinksPanelWidget.cpp
     src/gui/RelatedEntriesWidget.cpp
     src/gui/ReminderPanelWidget.cpp
+    src/gui/MindMapDialog.cpp
+    src/gui/RoadmapDialog.cpp
+    src/gui/WhiteboardDialog.cpp
     src/gui/BackupDialog.cpp
     src/gui/ShareDialog.cpp
     src/gui/ExportNoteDialog.cpp

@@ -2,5 +2,6 @@
 <RCC version="1.0">
     <qresource prefix="/cfdmnote">
         <file alias="MANUAL.md">../MANUAL.md</file>
+        <file alias="DEVLOG.md">../DEVLOG.md</file>
     </qresource>
 </RCC>
