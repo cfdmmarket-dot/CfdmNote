@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v2.0.0
+## Versão atual: v2.1.0
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -64,6 +64,13 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v1.9.1 — Pesquisar contexto da nota (027): extrai palavras-chave da nota (TF sem stopwords PT+EN, top 8), abre Google/Wikipedia/ChatGPT/GitHub com a query automática ✓
 - [x] v1.9.2 — ToastNotification: popup flutuante escuro com barra regressiva, botão copiar comando, fade-in/out, auto-close 20s; usado no AudioCaptureDialog quando whisper não está instalado ✓
 - [x] v2.0.0 — PowerSearchDialog: seletor de navegador privado (detecta Brave/LibreWolf/Firefox/Waterfox/Mullvad/Vivaldi/Chromium/Tor/etc, salva preferência) + aba "📈 Em Alta" (36 atalhos em 6 categorias: Vídeo, Redes Sociais, Tech/Dev, Notícias, Criadores, Compras) ✓
+- [x] v2.1.0 — Aba "📈 Em Alta" expandida: 13 sub-abas cobrindo 5 continentes (BR, PT, USA, Europa, Ásia, América Latina, África, Oceania) + Finanças/Cripto, Política Global, Cultura & Ciência, Produtos Digitais, Criadores ✓
+- [x] v2.1.0 — Tooltips 🔥 nos botões do trending (highlights dourados + popup escuro com descrição do site) ✓
+- [x] v2.1.0 — Tooltips ricos no menu CfdmNote (setToolTipsVisible + HTML com ícone/descrição/atalho em cada item) ✓
+- [x] v2.1.0 — Aba "🔗 Relacionados": auto-detecta entradas com mesmo domínio + referências cruzadas manuais por UUID (CfdmNote::RelatedEntries) + popup com detalhes + navegação ✓
+- [x] v2.1.0 — Aba "⏰ Lembrete": painel compacto com status do lembrete (ativo/disparado/desativado), tempo restante, recorrência, botão editar/remover ✓
+- [x] v2.1.0 — Versão exibida na tela de login (AppLockDialog): "v2.1.0" em azul abaixo do título ✓
+- [x] v2.1.0 — CfdmVersion.h: fonte única de verdade para a versão (main.cpp + AppLockDialog sincronizados) ✓
 - [x] v1.5.0 — ReminderManager: verifica a cada 60s, reagenda recorrentes, adiar 1h/8h ✓
 - [x] v1.5.0 — Google Calendar: botão abre browser com evento pré-preenchido (sem OAuth) ✓
 

@@ -26,6 +26,8 @@
 #include <QScrollArea>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QHash>
+#include <algorithm>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SearchWorker
@@ -158,6 +160,17 @@ PowerSearchDialog::PowerSearchDialog(QWidget* parent)
 {
     setWindowTitle(tr("Pesquisa Poderosa"));
     setMinimumSize(860, 600);
+
+    // Tooltip escuro e rico para todo o diálogo
+    setStyleSheet(
+        "QToolTip {"
+        "  background-color: #1a202c;"
+        "  color: #e2e8f0;"
+        "  border: 1px solid #4a5568;"
+        "  border-radius: 6px;"
+        "  padding: 8px 10px;"
+        "  font-size: 12px;"
+        "}");
 
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(10, 10, 10, 10);
@@ -410,18 +423,25 @@ void PowerSearchDialog::setupWebTab(QTabWidget* tabs)
     qRow->addWidget(m_webQuery, 1);
     qLayout->addLayout(qRow);
 
-    const QList<QPair<QString,QString>> engines = {
-        {tr("Google"),     "google"},
-        {tr("GitHub"),     "github"},
-        {tr("YouTube"),    "youtube"},
-        {tr("Wikipedia"),  "wikipedia"},
-        {tr("DuckDuckGo"), "duckduckgo"},
+    struct Engine { QString label; QString key; QString tip; };
+    const QList<Engine> engines = {
+        {tr("Google"),     "google",
+         tr("<b>Google</b><br>Busca geral em todos os sites indexados.<br><i>Melhor para: notícias, produtos, sites.</i>")},
+        {tr("GitHub"),     "github",
+         tr("<b>GitHub</b><br>Repositórios e projetos de código-fonte.<br><i>Melhor para: bibliotecas, ferramentas, exemplos.</i>")},
+        {tr("YouTube"),    "youtube",
+         tr("<b>YouTube</b><br>Vídeos, tutoriais e transmissões ao vivo.<br><i>Melhor para: tutoriais, reviews, entretenimento.</i>")},
+        {tr("Wikipedia"),  "wikipedia",
+         tr("<b>Wikipedia</b><br>Enciclopédia livre em português.<br><i>Melhor para: definições, histórico, conceitos.</i>")},
+        {tr("DuckDuckGo"), "duckduckgo",
+         tr("<b>DuckDuckGo</b><br>Busca privada sem rastreamento.<br><i>Melhor para: privacidade, resultados neutros.</i>")},
     };
     auto* engRow = new QHBoxLayout();
-    for (const auto& [label, key] : engines) {
-        auto* btn = new QPushButton(label);
+    for (const auto& eng : engines) {
+        auto* btn = new QPushButton(eng.label);
         btn->setFixedHeight(28);
-        const QString k = key;
+        btn->setToolTip(eng.tip);
+        const QString k = eng.key;
         connect(btn, &QPushButton::clicked, this, [this, k]() { onWebSearch(k); });
         engRow->addWidget(btn);
     }
@@ -860,109 +880,628 @@ void PowerSearchDialog::onCheckUrl(const QString& service)
 
 void PowerSearchDialog::setupTrendingTab(QTabWidget* tabs)
 {
-    // Scroll area para caber tudo sem redimensionar o diálogo
-    auto* scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
-
-    auto* page   = new QWidget();
-    auto* layout = new QVBoxLayout(page);
-    layout->setSpacing(10);
-    layout->setContentsMargins(6, 6, 6, 6);
-
-    // ── Helper: cria grupo com grade de botões ────────────────────────────────
-    auto makeGroup = [&](const QString& title,
-                          const QList<QPair<QString,QString>>& items,
-                          const QString& color) -> QGroupBox*
+    // ── Helper: página com scroll + grupos de botões ──────────────────────────
+    auto makePage = [this](const QList<std::tuple<QString,
+                                                   QList<QPair<QString,QString>>,
+                                                   QString>>& groups) -> QWidget*
     {
-        auto* grp = new QGroupBox(title);
-        grp->setStyleSheet(
-            QString("QGroupBox { font-weight: bold; color: %1;"
-                    " border: 1px solid %1; border-radius: 6px;"
-                    " margin-top: 8px; padding-top: 6px; }"
-                    "QGroupBox::title { subcontrol-origin: margin;"
-                    " left: 8px; padding: 0 4px; }").arg(color));
-        auto* flow = new QGridLayout(grp);
-        flow->setSpacing(6);
+        auto* scroll = new QScrollArea();
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        auto* page   = new QWidget();
+        auto* layout = new QVBoxLayout(page);
+        layout->setSpacing(8);
+        layout->setContentsMargins(6, 6, 6, 6);
 
-        int col = 0, row = 0;
-        for (const auto& [label, url] : items) {
-            auto* btn = new QPushButton(label);
-            btn->setFixedHeight(30);
-            btn->setStyleSheet(
-                QString("QPushButton { border: 1px solid %1; border-radius: 5px;"
-                        " color: %1; padding: 0 10px; }"
-                        "QPushButton:hover { background: %1; color: white; }").arg(color));
-            const QString u = url;
-            connect(btn, &QPushButton::clicked, this, [this, u]() { openUrl(u); });
-            flow->addWidget(btn, row, col);
-            ++col;
-            if (col >= 3) { col = 0; ++row; }
+        // Mapa de descrições para sites conhecidos
+        static const QHash<QString,QString> siteDesc = {
+            {"youtube.com",         tr("Maior plataforma de vídeos do mundo")},
+            {"tiktok.com",          tr("Vídeos curtos em alta no mundo todo")},
+            {"instagram.com",       tr("Fotos, Reels e Stories em destaque")},
+            {"twitter.com",         tr("Tendências e debates em tempo real")},
+            {"x.com",               tr("Tendências e debates em tempo real")},
+            {"reddit.com",          tr("Fóruns e discussões da comunidade")},
+            {"github.com",          tr("Repositórios de código mais populares")},
+            {"trends.google.com",   tr("O que o mundo está buscando agora")},
+            {"trends.google.com.br",tr("O que o Brasil está buscando agora")},
+            {"news.google.com",     tr("Agregador de notícias do Google")},
+            {"g1.globo.com",        tr("Portal de notícias da Rede Globo")},
+            {"uol.com.br",          tr("Um dos maiores portais do Brasil")},
+            {"hotmart.com",         tr("Maior plataforma de infoprodutos BR")},
+            {"amazon.com",          tr("Maior e-commerce do mundo")},
+            {"amazon.com.br",       tr("E-commerce mais acessado do Brasil")},
+            {"mercadolivre.com.br", tr("Maior marketplace da América Latina")},
+            {"bloomberg.com",       tr("Referência mundial em finanças e mercados")},
+            {"coinmarketcap.com",   tr("Preços e rankings de criptomoedas")},
+            {"producthunt.com",     tr("Produtos e startups lançados hoje")},
+            {"explodingtopics.com", tr("Tendências emergentes antes de explodirem")},
+            {"answerthepublic.com", tr("O que as pessoas perguntam sobre qualquer tema")},
+            {"clickbank.com",       tr("Maior rede de afiliados digital do mundo")},
+            {"publico.pt",          tr("Jornal de referência de Portugal")},
+            {"observador.pt",       tr("Notícias e análises de Portugal")},
+            {"aljazeera.com",       tr("Canal de notícias internacionais — Médio Oriente")},
+            {"bbc.com",             tr("BBC: notícias mundiais de referência")},
+            {"reuters.com",         tr("Agência de notícias global de referência")},
+            {"ft.com",              tr("Financial Times: economia e finanças globais")},
+            {"tradingeconomics.com",tr("Dados económicos de 196 países")},
+            {"ourworldindata.org",  tr("Dados e gráficos sobre o mundo em desenvolvimento")},
+            {"nationalgeographic.com",tr("Ciência, natureza e exploração geográfica")},
+            {"ted.com",             tr("Palestras inspiradoras de especialistas mundiais")},
+            {"dribbble.com",        tr("Design gráfico e UI em destaque")},
+            {"bilibili.com",        tr("Principal plataforma de vídeo da China")},
+            {"webtoons.com",        tr("Manhwas e webtoons coreanos populares")},
+        };
+
+        for (const auto& [title, items, color] : groups) {
+            // Detecta se algum item tem 🔥 para destacar o grupo
+            const bool hasHot = std::any_of(items.begin(), items.end(),
+                [](const QPair<QString,QString>& p){ return p.first.startsWith("🔥"); });
+
+            auto* grp = new QGroupBox(title);
+            grp->setStyleSheet(
+                QString("QGroupBox{font-weight:bold;color:%1;border:%2 solid %1;"
+                        "border-radius:6px;margin-top:8px;padding-top:4px}"
+                        "QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px}")
+                .arg(color, hasHot ? "2px" : "1px"));
+            auto* grid = new QGridLayout(grp);
+            grid->setSpacing(5);
+            int col = 0, row = 0;
+            for (const auto& [rawLabel, url] : items) {
+                const bool isHot = rawLabel.startsWith("🔥");
+                // Remove prefixo "🔥 " do texto exibido
+                const QString label = isHot
+                    ? rawLabel.mid(rawLabel.indexOf(' ') + 1)
+                    : rawLabel;
+
+                // Tooltip rico: nome + domínio + descrição do site
+                const QString domain = QUrl(url).host().remove("www.");
+                const QString desc   = siteDesc.value(domain,
+                    siteDesc.value(QUrl(url).host(),
+                    tr("Clique para abrir no navegador selecionado")));
+                const QString tip =
+                    QString("<b>%1</b><br>"
+                            "<span style='color:#a0aec0;font-size:10px'>%2</span><br><br>"
+                            "%3<br><br>"
+                            "<i style='color:#68d391'>🖱️ Abre no navegador escolhido</i>")
+                    .arg(label.toHtmlEscaped(), domain, desc);
+
+                auto* btn = new QPushButton(isHot ? "🔥 " + label : label);
+                btn->setFixedHeight(28);
+                btn->setToolTip(tip);
+
+                if (isHot) {
+                    btn->setStyleSheet(
+                        "QPushButton{"
+                        "  border: 2px solid #f6ad55;"
+                        "  border-radius: 4px;"
+                        "  color: #c05621;"
+                        "  padding: 0 8px;"
+                        "  font-size: 11px;"
+                        "  font-weight: bold;"
+                        "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+                        "    stop:0 #fffaf0, stop:1 #fef3c7);}"
+                        "QPushButton:hover{"
+                        "  background: #f6ad55;"
+                        "  color: white;"
+                        "  border-color: #ed8936;}");
+                } else {
+                    btn->setStyleSheet(
+                        QString("QPushButton{border:1px solid %1;border-radius:4px;"
+                                "color:%1;padding:0 8px;font-size:11px}"
+                                "QPushButton:hover{background:%1;color:white}").arg(color));
+                }
+                const QString u = url;
+                connect(btn, &QPushButton::clicked, this, [this,u](){ openUrl(u); });
+                grid->addWidget(btn, row, col);
+                if (++col >= 3) { col = 0; ++row; }
+            }
+            layout->addWidget(grp);
         }
-        return grp;
+        layout->addStretch();
+        scroll->setWidget(page);
+        return scroll;
     };
 
-    // ── Vídeo & Conteúdo ──────────────────────────────────────────────────────
-    layout->addWidget(makeGroup(tr("▶  Vídeo & Conteúdo"), {
-        {tr("YouTube Trending BR"),   "https://www.youtube.com/feed/trending?gl=BR"},
-        {tr("YouTube Música BR"),     "https://www.youtube.com/feed/trending?gl=BR&bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D"},
-        {tr("YouTube Gaming"),        "https://www.youtube.com/feed/trending?gl=BR&bp=4gIcGhpnYW1pbmdfY29ycHVzX21vc3RfcG9wdWxhcg%3D%3D"},
-        {tr("TikTok Trending"),       "https://www.tiktok.com/trending"},
-        {tr("Kwai Trending"),         "https://www.kwai.com/"},
-        {tr("Vimeo Staff Picks"),     "https://vimeo.com/channels/staffpicks"},
-    }, "#e53e3e"));
+    // ── Sub-abas regionais ────────────────────────────────────────────────────
+    auto* regional = new QTabWidget();
+    regional->setTabPosition(QTabWidget::North);
 
-    // ── Redes Sociais ─────────────────────────────────────────────────────────
-    layout->addWidget(makeGroup(tr("👥  Redes Sociais"), {
-        {tr("X / Twitter Trending"),  "https://twitter.com/explore/tabs/trending"},
-        {tr("Instagram Explore"),     "https://www.instagram.com/explore/"},
-        {tr("Facebook Trending"),     "https://www.facebook.com/"},
-        {tr("Pinterest Trending"),    "https://www.pinterest.com/"},
-        {tr("LinkedIn Notícias"),     "https://www.linkedin.com/news/"},
-        {tr("Mastodon Federated"),    "https://mastodon.social/explore"},
-    }, "#3182ce"));
+    // ════ 🇧🇷 BRASIL ════════════════════════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("📺 Vídeo & Entretenimento"), {
+            {"🔥 YouTube Trending BR",  "https://www.youtube.com/feed/trending?gl=BR"},
+            {"YouTube Música BR",      "https://www.youtube.com/feed/trending?gl=BR&bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D"},
+            {"YouTube Gaming BR",      "https://www.youtube.com/feed/trending?gl=BR&bp=4gIcGhpnYW1pbmdfY29ycHVzX21vc3RfcG9wdWxhcg%3D%3D"},
+            {"TikTok Trending",        "https://www.tiktok.com/trending"},
+            {"Kwai BR",                "https://www.kwai.com/"},
+            {"Globoplay Destaques",    "https://globoplay.globo.com/"},
+        }, "#green"},
+        {tr("📰 Notícias BR"), {
+            {"Google News BR",         "https://news.google.com/topstories?hl=pt-BR&gl=BR&ceid=BR:pt-419"},
+            {"🔥 Google Trends BR",      "https://trends.google.com.br/trending?geo=BR"},
+            {"UOL Notícias",           "https://noticias.uol.com.br/"},
+            {"G1 Globo",               "https://g1.globo.com/"},
+            {"R7 Notícias",            "https://www.r7.com/"},
+            {"Folha de S.Paulo",       "https://www.folha.uol.com.br/"},
+        }, "#d69e2e"},
+        {tr("🛒 Mercado & Afiliados BR"), {
+            {"🔥 Mercado Livre + Vendidos","https://www.mercadolivre.com.br/mais-vendidos/"},
+            {"🔥 Hotmart Marketplace",  "https://hotmart.com/pt-BR/marketplace"},
+            {"Monetizze Marketplace",  "https://monetizze.com.br/marketplace/"},
+            {"Eduzz Marketplace",      "https://eduzz.com/marketplace"},
+            {"Amazon BR Best Sellers", "https://www.amazon.com.br/gp/bestsellers/"},
+            {"Shopee BR Trending",     "https://shopee.com.br/"},
+        }, "#dd6b20"},
+        {tr("💬 Redes Sociais BR"), {
+            {"Instagram Explore",      "https://www.instagram.com/explore/"},
+            {"Twitter/X BR Trending",  "https://twitter.com/explore/tabs/trending"},
+            {"Facebook BR",            "https://www.facebook.com/"},
+            {"Pinterest BR",           "https://www.pinterest.com.br/"},
+            {"LinkedIn BR",            "https://www.linkedin.com/feed/"},
+            {"Reddit r/brasil",        "https://www.reddit.com/r/brasil/hot/"},
+        }, "#3182ce"},
+    }), tr("🇧🇷 Brasil"));
 
-    // ── Tech & Dev ────────────────────────────────────────────────────────────
-    layout->addWidget(makeGroup(tr("💻  Tech & Dev"), {
-        {tr("GitHub Trending"),       "https://github.com/trending"},
-        {tr("Hacker News"),           "https://news.ycombinator.com/"},
-        {tr("Product Hunt"),          "https://www.producthunt.com/"},
-        {tr("DEV.to"),                "https://dev.to/"},
-        {tr("Lobste.rs"),             "https://lobste.rs/"},
-        {tr("Reddit r/programming"),  "https://www.reddit.com/r/programming/hot/"},
-    }, "#38a169"));
+    // ════ 🇵🇹 PORTUGAL ══════════════════════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("📰 Notícias PT"), {
+            {"Google News Portugal",   "https://news.google.com/topstories?hl=pt-PT&gl=PT&ceid=PT:pt"},
+            {"Google Trends Portugal", "https://trends.google.pt/trending?geo=PT"},
+            {"Público",                "https://www.publico.pt/"},
+            {"Observador",             "https://observador.pt/"},
+            {"Expresso",               "https://expresso.pt/"},
+            {"RTP Notícias",           "https://www.rtp.pt/noticias/"},
+        }, "#d69e2e"},
+        {tr("📺 Vídeo & Entretenimento PT"), {
+            {"YouTube Trending PT",    "https://www.youtube.com/feed/trending?gl=PT"},
+            {"RTP Play",               "https://www.rtp.pt/play/"},
+            {"SIC Online",             "https://sicnoticias.pt/"},
+            {"TVI24",                  "https://tvi24.iol.pt/"},
+            {"CMTV",                   "https://www.cmtv.pt/"},
+            {"TikTok PT",              "https://www.tiktok.com/trending"},
+        }, "#e53e3e"},
+        {tr("🛒 Comércio & Afiliados PT"), {
+            {"Amazon.es (PT usa muito)","https://www.amazon.es/gp/bestsellers/"},
+            {"FNAC Portugal",          "https://www.fnac.pt/"},
+            {"Worten Promoções",       "https://www.worten.pt/"},
+            {"OLX Portugal",           "https://www.olx.pt/"},
+            {"Digistore24 PT",         "https://www.digistore24.com/"},
+            {"Continente Online",      "https://www.continente.pt/"},
+        }, "#38a169"},
+        {tr("💬 Redes & Comunidade PT"), {
+            {"Instagram PT",           "https://www.instagram.com/explore/"},
+            {"Twitter/X PT",           "https://twitter.com/explore/tabs/trending"},
+            {"LinkedIn PT",            "https://www.linkedin.com/feed/"},
+            {"Reddit r/portugal",      "https://www.reddit.com/r/portugal/hot/"},
+            {"SAPO Notícias",          "https://noticias.sapo.pt/"},
+            {"Jornal de Negócios",     "https://www.jornaldenegocios.pt/"},
+        }, "#805ad5"},
+    }), tr("🇵🇹 Portugal"));
 
-    // ── Notícias & Tendências ─────────────────────────────────────────────────
-    layout->addWidget(makeGroup(tr("📰  Notícias & Tendências"), {
-        {tr("Google Trends BR"),      "https://trends.google.com.br/trending?geo=BR"},
-        {tr("Google News BR"),        "https://news.google.com/topstories?hl=pt-BR&gl=BR&ceid=BR:pt-419"},
-        {tr("Reddit r/all Hot"),      "https://www.reddit.com/r/all/hot/"},
-        {tr("Reddit r/worldnews"),    "https://www.reddit.com/r/worldnews/hot/"},
-        {tr("Feedly Trending"),       "https://feedly.com/i/discover"},
-        {tr("Flipboard Trending"),    "https://flipboard.com/"},
-    }, "#d69e2e"));
+    // ════ 🇺🇸 USA & GLOBAL ══════════════════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("📰 News USA"), {
+            {"Google News USA",        "https://news.google.com/topstories?hl=en-US&gl=US&ceid=US:en"},
+            {"Google Trends USA",      "https://trends.google.com/trending?geo=US"},
+            {"Reddit r/all Hot",       "https://www.reddit.com/r/all/hot/"},
+            {"Hacker News",            "https://news.ycombinator.com/"},
+            {"Reuters",                "https://www.reuters.com/"},
+            {"AP News",                "https://apnews.com/"},
+        }, "#d69e2e"},
+        {tr("💻 Tech & Dev"), {
+            {"🔥 GitHub Trending",       "https://github.com/trending"},
+            {"🔥 Product Hunt",         "https://www.producthunt.com/"},
+            {"DEV.to",                 "https://dev.to/"},
+            {"The Verge",              "https://www.theverge.com/"},
+            {"TechCrunch",             "https://techcrunch.com/"},
+            {"Wired",                  "https://www.wired.com/"},
+        }, "#38a169"},
+        {tr("🛒 Comércio USA"), {
+            {"Amazon USA Best Sellers","https://www.amazon.com/gp/bestsellers/"},
+            {"eBay Trending",          "https://www.ebay.com/trending"},
+            {"Etsy Trending",          "https://www.etsy.com/"},
+            {"ClickBank Marketplace",  "https://www.clickbank.com/"},
+            {"JVZoo Marketplace",      "https://www.jvzoo.com/"},
+            {"WarriorPlus",            "https://warriorplus.com/"},
+        }, "#dd6b20"},
+        {tr("🎯 Criadores & Tendências"), {
+            {"🔥 Exploding Topics",      "https://explodingtopics.com/"},
+            {"🔥 AnswerThePublic",      "https://answerthepublic.com/"},
+            {"BuzzSumo",               "https://buzzsumo.com/"},
+            {"SparkToro Trending",     "https://sparktoro.com/trending"},
+            {"Substack Trending",      "https://substack.com/discover"},
+            {"Medium Trending",        "https://medium.com/explore"},
+        }, "#805ad5"},
+        {tr("📺 Entretenimento USA"), {
+            {"YouTube Trending USA",   "https://www.youtube.com/feed/trending?gl=US"},
+            {"Netflix Top USA",        "https://www.netflix.com/"},
+            {"Twitch Trending",        "https://www.twitch.tv/directory?sort=VIEWER_COUNT"},
+            {"Spotify Charts USA",     "https://charts.spotify.com/charts/overview/global"},
+            {"Billboard Hot 100",      "https://www.billboard.com/charts/hot-100/"},
+            {"IMDb Most Popular",      "https://www.imdb.com/chart/moviemeter/"},
+        }, "#e53e3e"},
+    }), tr("🇺🇸 USA & Global"));
 
-    // ── Para Criadores de Conteúdo ────────────────────────────────────────────
-    layout->addWidget(makeGroup(tr("🎯  Para Criadores de Conteúdo"), {
-        {tr("AnswerThePublic"),        "https://answerthepublic.com/"},
-        {tr("Google Trends Comparar"),"https://trends.google.com.br/trends/explore?geo=BR"},
-        {tr("BuzzSumo (free)"),        "https://buzzsumo.com/"},
-        {tr("Exploding Topics"),       "https://explodingtopics.com/"},
-        {tr("SparkToro Trending"),     "https://sparktoro.com/trending"},
-        {tr("Semrush Keyword Free"),   "https://www.semrush.com/analytics/keywordoverview/"},
-    }, "#805ad5"));
+    // ════ 🌏 ÁSIA ════════════════════════════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("🇯🇵 Japão"), {
+            {"Yahoo Japan Trends",     "https://trends.yahoo.co.jp/"},
+            {"NicoNico Trending",      "https://www.nicovideo.jp/"},
+            {"Rakuten Mais Vendidos",  "https://www.rakuten.co.jp/"},
+            {"Amazon Japan Best",      "https://www.amazon.co.jp/gp/bestsellers/"},
+            {"LINE TODAY JP",          "https://today.line.me/jp"},
+            {"Twitter/X JP Trends",    "https://twitter.com/explore/tabs/trending"},
+        }, "#e53e3e"},
+        {tr("🇨🇳 China / Mercado Chinês"), {
+            {"Bilibili Trending",      "https://www.bilibili.com/"},
+            {"Weibo Hot",              "https://weibo.com/hot/"},
+            {"Taobao/Tmall Trending",  "https://www.taobao.com/"},
+            {"JD.com Best Sellers",    "https://www.jd.com/"},
+            {"Alibaba Global",         "https://www.alibaba.com/"},
+            {"AliExpress Trending",    "https://www.aliexpress.com/"},
+        }, "#dd6b20"},
+        {tr("🇰🇷 Coreia do Sul"), {
+            {"Naver Trending",         "https://www.naver.com/"},
+            {"Kakao Trending",         "https://www.kakao.com/"},
+            {"Coupang Best Sellers",   "https://www.coupang.com/"},
+            {"Webtoon Popular",        "https://www.webtoons.com/en/dailySchedule"},
+            {"YouTube Trending KR",    "https://www.youtube.com/feed/trending?gl=KR"},
+            {"Melon Music Chart",      "https://www.melon.com/chart/index.htm"},
+        }, "#3182ce"},
+        {tr("🇮🇳 India"), {
+            {"Google Trends India",    "https://trends.google.co.in/trending?geo=IN"},
+            {"Hotstar Trending",       "https://www.hotstar.com/in"},
+            {"Flipkart Best Sellers",  "https://www.flipkart.com/"},
+            {"Amazon India Best",      "https://www.amazon.in/gp/bestsellers/"},
+            {"Times of India",         "https://timesofindia.indiatimes.com/"},
+            {"ShareChat Trending",     "https://sharechat.com/"},
+        }, "#38a169"},
+        {tr("🌏 Sudeste Asiático"), {
+            {"Lazada SEA",             "https://www.lazada.com/"},
+            {"Shopee SEA",             "https://shopee.com/"},
+            {"Grab",                   "https://www.grab.com/"},
+            {"Tokopedia (Indonesia)",  "https://www.tokopedia.com/"},
+            {"Straits Times (SG)",     "https://www.straitstimes.com/"},
+            {"Channel NewsAsia",       "https://www.channelnewsasia.com/"},
+        }, "#805ad5"},
+    }), tr("🌏 Ásia"));
 
-    // ── Compras & Mercado ─────────────────────────────────────────────────────
-    layout->addWidget(makeGroup(tr("🛒  Compras & Mercado"), {
-        {tr("Amazon Best Sellers BR"), "https://www.amazon.com.br/gp/bestsellers/"},
-        {tr("Mercado Livre Mais Vend."),"https://www.mercadolivre.com.br/mais-vendidos/"},
-        {tr("Hotmart Top Produtos"),   "https://hotmart.com/pt-BR/marketplace"},
-        {tr("Monetizze Top"),          "https://monetizze.com.br/marketplace/"},
-        {tr("Eduzz Marketplace"),      "https://eduzz.com/marketplace"},
-        {tr("Shopee Trending BR"),     "https://shopee.com.br/"},
-    }, "#dd6b20"));
+    // ════ 🌍 EUROPA ══════════════════════════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("📰 Notícias Europa"), {
+            {"Euronews",               "https://www.euronews.com/"},
+            {"BBC News Europe",        "https://www.bbc.com/news/world/europe"},
+            {"Deutsche Welle (DW)",    "https://www.dw.com/en/top-stories/s-9097"},
+            {"Le Monde",               "https://www.lemonde.fr/"},
+            {"El País",                "https://elpais.com/"},
+            {"Der Spiegel International","https://www.spiegel.de/international/"},
+        }, "#3182ce"},
+        {tr("📺 Vídeo & Entretenimento EU"), {
+            {"YouTube Trending UK",    "https://www.youtube.com/feed/trending?gl=GB"},
+            {"YouTube Trending DE",    "https://www.youtube.com/feed/trending?gl=DE"},
+            {"YouTube Trending FR",    "https://www.youtube.com/feed/trending?gl=FR"},
+            {"ARD Mediathek (DE)",     "https://www.ardmediathek.de/"},
+            {"France.tv",              "https://www.france.tv/"},
+            {"La Repubblica (IT)",     "https://www.repubblica.it/"},
+        }, "#e53e3e"},
+        {tr("🛒 Comércio & Mercado EU"), {
+            {"Amazon UK Best Sellers", "https://www.amazon.co.uk/gp/bestsellers/"},
+            {"Amazon DE Best Sellers", "https://www.amazon.de/gp/bestsellers/"},
+            {"Amazon FR Best Sellers", "https://www.amazon.fr/gp/bestsellers/"},
+            {"Zalando Trending",       "https://www.zalando.com/"},
+            {"Booking.com Trending",   "https://www.booking.com/"},
+            {"Idealo.de Preços",       "https://www.idealo.de/"},
+        }, "#38a169"},
+        {tr("🏛️ Política & Economia EU"), {
+            {"Politico Europe",        "https://www.politico.eu/"},
+            {"EUobserver",             "https://euobserver.com/"},
+            {"Financial Times EU",     "https://www.ft.com/"},
+            {"Statista Europe",        "https://www.statista.com/markets/403/topic/467/european-union/"},
+            {"Eurostat Dados",         "https://ec.europa.eu/eurostat/"},
+            {"Trading Economics EU",   "https://tradingeconomics.com/european-union/indicators"},
+        }, "#805ad5"},
+    }), tr("🌍 Europa"));
 
-    layout->addStretch();
-    scroll->setWidget(page);
-    tabs->addTab(scroll, QIcon::fromTheme("go-up"), tr("📈 Em Alta"));
+    // ════ 🌎 AMÉRICA LATINA ══════════════════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("📰 Notícias Am. Latina"), {
+            {"Google News LATAM",      "https://news.google.com/topstories?hl=es-419&gl=MX&ceid=MX:es-419"},
+            {"Infobae",                "https://www.infobae.com/"},
+            {"BBC Mundo",              "https://www.bbc.com/mundo"},
+            {"El Universal México",    "https://www.eluniversal.com.mx/"},
+            {"Clarín Argentina",       "https://www.clarin.com/"},
+            {"El Comercio Peru",       "https://elcomercio.pe/"},
+        }, "#d69e2e"},
+        {tr("🛒 Comércio LATAM"), {
+            {"Mercado Livre MX",       "https://www.mercadolibre.com.mx/"},
+            {"Mercado Livre CO",       "https://www.mercadolibre.com.co/"},
+            {"Mercado Livre AR",       "https://www.mercadolibre.com.ar/"},
+            {"Amazon MX Best Sellers", "https://www.amazon.com.mx/gp/bestsellers/"},
+            {"Falabella Tendencias",   "https://www.falabella.com/falabella-cl/"},
+            {"Linio Marketplace",      "https://www.linio.com/"},
+        }, "#dd6b20"},
+        {tr("📺 Vídeo LATAM"), {
+            {"YouTube Trending MX",    "https://www.youtube.com/feed/trending?gl=MX"},
+            {"YouTube Trending AR",    "https://www.youtube.com/feed/trending?gl=AR"},
+            {"YouTube Trending CO",    "https://www.youtube.com/feed/trending?gl=CO"},
+            {"TikTok LATAM",           "https://www.tiktok.com/trending"},
+            {"Netflix LATAM",          "https://www.netflix.com/mx/"},
+            {"Globo Internacional",    "https://www.globo.com/"},
+        }, "#e53e3e"},
+        {tr("💬 Redes Sociais LATAM"), {
+            {"Twitter/X MX Trending",  "https://twitter.com/explore/tabs/trending"},
+            {"Instagram LATAM",        "https://www.instagram.com/explore/"},
+            {"Reddit r/argentina",     "https://www.reddit.com/r/argentina/hot/"},
+            {"Reddit r/mexico",        "https://www.reddit.com/r/mexico/hot/"},
+            {"Reddit r/colombia",      "https://www.reddit.com/r/colombia/hot/"},
+            {"Reddit r/chile",         "https://www.reddit.com/r/chile/hot/"},
+        }, "#3182ce"},
+    }), tr("🌎 América Latina"));
+
+    // ════ 🌍 ÁFRICA ══════════════════════════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("📰 Notícias África"), {
+            {"Al Jazeera Africa",      "https://www.aljazeera.com/africa/"},
+            {"BBC Africa",             "https://www.bbc.com/news/world/africa"},
+            {"Africa News",            "https://www.africanews.com/"},
+            {"The Africa Report",      "https://www.theafricareport.com/"},
+            {"Daily Nation Kenya",     "https://nation.africa/kenya"},
+            {"Mail & Guardian (ZA)",   "https://mg.co.za/"},
+        }, "#d69e2e"},
+        {tr("🇿🇦 África do Sul"), {
+            {"News24",                 "https://www.news24.com/"},
+            {"TimesLive ZA",           "https://www.timeslive.co.za/"},
+            {"Google Trends ZA",       "https://trends.google.co.za/trending?geo=ZA"},
+            {"Takealot Best Sellers",  "https://www.takealot.com/"},
+            {"YouTube Trending ZA",    "https://www.youtube.com/feed/trending?gl=ZA"},
+            {"OLX South Africa",       "https://www.olx.co.za/"},
+        }, "#38a169"},
+        {tr("🇳🇬 Nigéria"), {
+            {"Vanguard Nigeria",       "https://www.vanguardngr.com/"},
+            {"Punch Nigeria",          "https://punchng.com/"},
+            {"Google Trends NG",       "https://trends.google.com.ng/trending?geo=NG"},
+            {"Jumia Nigeria",          "https://www.jumia.com.ng/"},
+            {"Konga Nigeria",          "https://www.konga.com/"},
+            {"YouTube Trending NG",    "https://www.youtube.com/feed/trending?gl=NG"},
+        }, "#e53e3e"},
+        {tr("🇪🇬 Egito & Norte de África"), {
+            {"Al-Ahram Arabic",        "https://www.ahram.org.eg/"},
+            {"Al Jazeera Arabic",      "https://www.aljazeera.net/"},
+            {"Google Trends EG",       "https://trends.google.com/trending?geo=EG"},
+            {"OLX Egypt",              "https://www.olx.com.eg/"},
+            {"Souq/Amazon.ae",         "https://www.amazon.ae/gp/bestsellers/"},
+            {"YouTube Trending EG",    "https://www.youtube.com/feed/trending?gl=EG"},
+        }, "#805ad5"},
+        {tr("💰 Fintech & Mobile África"), {
+            {"M-Pesa (Safaricom)",     "https://www.safaricom.co.ke/personal/m-pesa"},
+            {"Flutterwave",            "https://flutterwave.com/"},
+            {"Paystack",               "https://paystack.com/"},
+            {"Jumia Marketplace",      "https://www.jumia.com/"},
+            {"AfricanStartups",        "https://africanstartups.com/"},
+            {"Disrupt Africa",         "https://disruptafrica.com/"},
+        }, "#3182ce"},
+    }), tr("🌍 África"));
+
+    // ════ 🌊 OCEANIA ════════════════════════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("📰 Notícias Oceania"), {
+            {"ABC Australia News",     "https://www.abc.net.au/news/"},
+            {"The Guardian Australia", "https://www.theguardian.com/australia-news"},
+            {"NZ Herald",              "https://www.nzherald.co.nz/"},
+            {"Stuff.co.nz",            "https://www.stuff.co.nz/"},
+            {"Sydney Morning Herald",  "https://www.smh.com.au/"},
+            {"Google News AU",         "https://news.google.com/topstories?hl=en-AU&gl=AU&ceid=AU:en"},
+        }, "#3182ce"},
+        {tr("🛒 Comércio Oceania"), {
+            {"Amazon AU Best Sellers", "https://www.amazon.com.au/gp/bestsellers/"},
+            {"eBay Australia",         "https://www.ebay.com.au/"},
+            {"TradeMe NZ",             "https://www.trademe.co.nz/"},
+            {"Catch.com.au",           "https://www.catch.com.au/"},
+            {"Kmart Australia",        "https://www.kmart.com.au/"},
+            {"JB Hi-Fi Trending",      "https://www.jbhifi.com.au/"},
+        }, "#38a169"},
+        {tr("📺 Vídeo & Cultura AU"), {
+            {"YouTube Trending AU",    "https://www.youtube.com/feed/trending?gl=AU"},
+            {"9Now Australia",         "https://www.9now.com.au/"},
+            {"Stan Streaming",         "https://www.stan.com.au/"},
+            {"ABC iview",              "https://iview.abc.net.au/"},
+            {"Google Trends AU",       "https://trends.google.com.au/trending?geo=AU"},
+            {"Reddit r/australia",     "https://www.reddit.com/r/australia/hot/"},
+        }, "#d69e2e"},
+    }), tr("🌊 Oceania"));
+
+    // ════ 💰 FINANÇAS & MERCADOS GLOBAIS ════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("📈 Mercados Financeiros"), {
+            {"🔥 Bloomberg Markets",    "https://www.bloomberg.com/markets"},
+            {"Reuters Finance",        "https://www.reuters.com/finance/"},
+            {"Yahoo Finance",          "https://finance.yahoo.com/"},
+            {"Investing.com",          "https://www.investing.com/"},
+            {"MarketWatch",            "https://www.marketwatch.com/"},
+            {"Financial Times",        "https://www.ft.com/"},
+        }, "#38a169"},
+        {tr("₿ Criptomoedas"), {
+            {"🔥 CoinMarketCap",         "https://coinmarketcap.com/"},
+            {"CoinGecko",              "https://www.coingecko.com/"},
+            {"CryptoCompare",          "https://www.cryptocompare.com/"},
+            {"Binance Markets",        "https://www.binance.com/en/markets/overview"},
+            {"TradingView Crypto",     "https://www.tradingview.com/markets/cryptocurrencies/prices-all/"},
+            {"Messari Crypto",         "https://messari.io/"},
+        }, "#d69e2e"},
+        {tr("🏦 Economia Global"), {
+            {"Trading Economics",      "https://tradingeconomics.com/"},
+            {"World Bank Data",        "https://data.worldbank.org/"},
+            {"IMF Data",               "https://www.imf.org/en/Data"},
+            {"OECD Data",              "https://data.oecd.org/"},
+            {"Statista",               "https://www.statista.com/"},
+            {"Our World in Data",      "https://ourworldindata.org/"},
+        }, "#3182ce"},
+        {tr("📊 Bolsas de Valores"), {
+            {"NYSE Markets",           "https://www.nyse.com/markets"},
+            {"NASDAQ Trends",          "https://www.nasdaq.com/"},
+            {"B3 (Bovespa)",           "https://www.b3.com.br/pt_br/market-data-e-indices/"},
+            {"Euronext Markets",       "https://www.euronext.com/en/markets"},
+            {"Tokyo Stock Exchange",   "https://www.jpx.co.jp/english/"},
+            {"Macrotrends",            "https://www.macrotrends.net/"},
+        }, "#805ad5"},
+        {tr("💹 Forex & Commodities"), {
+            {"XE Currency Converter",  "https://www.xe.com/"},
+            {"Forex Factory",          "https://www.forexfactory.com/"},
+            {"Gold Price Live",        "https://www.goldprice.org/"},
+            {"Oil Price Monitor",      "https://oilprice.com/"},
+            {"FRED Economic Data",     "https://fred.stlouisfed.org/"},
+            {"Numbeo Cost of Living",  "https://www.numbeo.com/cost-of-living/"},
+        }, "#dd6b20"},
+    }), tr("💰 Finanças"));
+
+    // ════ 🌐 POLÍTICA & GEOPOLÍTICA GLOBAL ══════════════════════════════════
+    regional->addTab(makePage({
+        {tr("🌐 Geopolítica & Relações Internacionais"), {
+            {"Council on Foreign Relations","https://www.cfr.org/"},
+            {"Foreign Policy",         "https://foreignpolicy.com/"},
+            {"The Diplomat (Ásia)",    "https://thediplomat.com/"},
+            {"Al Jazeera World",       "https://www.aljazeera.com/"},
+            {"Reuters World News",     "https://www.reuters.com/world/"},
+            {"Associated Press Global","https://apnews.com/hub/world-news"},
+        }, "#e53e3e"},
+        {tr("🏛️ Política USA"), {
+            {"Politico USA",           "https://www.politico.com/"},
+            {"The Hill",               "https://thehill.com/"},
+            {"RealClearPolitics",      "https://www.realclearpolitics.com/"},
+            {"FiveThirtyEight",        "https://fivethirtyeight.com/"},
+            {"Congress.gov",           "https://www.congress.gov/"},
+            {"NPR Politics",           "https://www.npr.org/sections/politics/"},
+        }, "#3182ce"},
+        {tr("🇧🇷🇵🇹 Política Lusófona"), {
+            {"Agência Brasil",         "https://agenciabrasil.ebc.com.br/"},
+            {"Câmara dos Deputados",   "https://www.camara.leg.br/"},
+            {"Senado Federal BR",      "https://www.senado.leg.br/"},
+            {"Assembleia Portugal",    "https://www.parlamento.pt/"},
+            {"Observador PT Política", "https://observador.pt/politica/"},
+            {"Jornal Público BR",      "https://www.publico.pt/"},
+        }, "#38a169"},
+        {tr("📊 Think Tanks & Análises"), {
+            {"Chatham House",          "https://www.chathamhouse.org/"},
+            {"Brookings Institution",  "https://www.brookings.edu/"},
+            {"CSIS (Security)",        "https://www.csis.org/"},
+            {"World Economic Forum",   "https://www.weforum.org/"},
+            {"Transparency International","https://www.transparency.org/"},
+            {"Freedom House",          "https://freedomhouse.org/"},
+        }, "#805ad5"},
+    }), tr("🌐 Política"));
+
+    // ════ 🌏 CULTURA, CIÊNCIA & CONHECIMENTO ════════════════════════════════
+    regional->addTab(makePage({
+        {tr("🔬 Ciência & Tecnologia"), {
+            {"Nature News",            "https://www.nature.com/news"},
+            {"Science Daily",          "https://www.sciencedaily.com/"},
+            {"MIT Technology Review",  "https://www.technologyreview.com/"},
+            {"New Scientist",          "https://www.newscientist.com/"},
+            {"ArXiv Preprints",        "https://arxiv.org/"},
+            {"Google Scholar",         "https://scholar.google.com/"},
+        }, "#38a169"},
+        {tr("🌍 Cultura & Sociedade"), {
+            {"National Geographic",    "https://www.nationalgeographic.com/"},
+            {"Culture Trip",           "https://theculturetrip.com/"},
+            {"Smithsonian Magazine",   "https://www.smithsonianmag.com/"},
+            {"Wikipedia PT",           "https://pt.wikipedia.org/wiki/Especial:PáginaAleatória"},
+            {"Wikipedia EN",           "https://en.wikipedia.org/wiki/Special:Random"},
+            {"Wikipedia ES",           "https://es.wikipedia.org/wiki/Especial:Aleatoria"},
+        }, "#d69e2e"},
+        {tr("🗺️ Geografia & Mapas"), {
+            {"Google Maps Explore",    "https://www.google.com/maps/"},
+            {"OpenStreetMap",          "https://www.openstreetmap.org/"},
+            {"Geograph World",         "https://www.geograph.org.uk/"},
+            {"Atlas Obscura",          "https://www.atlasobscura.com/"},
+            {"Worldometers",           "https://www.worldometers.info/"},
+            {"GaWC World Cities",      "https://www.lboro.ac.uk/microsites/geography/gawc/"},
+        }, "#3182ce"},
+        {tr("📚 Aprendizado Global"), {
+            {"Khan Academy",           "https://www.khanacademy.org/"},
+            {"TED Talks",              "https://www.ted.com/talks"},
+            {"Coursera Popular",       "https://www.coursera.org/"},
+            {"edX Courses",            "https://www.edx.org/"},
+            {"Project Gutenberg",      "https://www.gutenberg.org/"},
+            {"Internet Archive",       "https://archive.org/"},
+        }, "#805ad5"},
+    }), tr("🌏 Cultura & Ciência"));
+
+    // ════ 💰 PRODUTOS DIGITAIS & AFILIADOS ══════════════════════════════════
+    regional->addTab(makePage({
+        {tr("📦 Plataformas BR/PT"), {
+            {"Hotmart Marketplace",    "https://hotmart.com/pt-BR/marketplace"},
+            {"Monetizze Marketplace",  "https://monetizze.com.br/marketplace/"},
+            {"Eduzz Marketplace",      "https://eduzz.com/marketplace"},
+            {"Braip Afiliados",        "https://braip.com/"},
+            {"Digistore24",            "https://www.digistore24.com/"},
+            {"PerfectPay",             "https://perfectpay.com.br/"},
+        }, "#dd6b20"},
+        {tr("📦 Plataformas USA/Global"), {
+            {"ClickBank Marketplace",  "https://www.clickbank.com/"},
+            {"JVZoo Marketplace",      "https://www.jvzoo.com/"},
+            {"WarriorPlus",            "https://warriorplus.com/"},
+            {"ShareASale",             "https://www.shareasale.com/"},
+            {"Commission Junction",    "https://www.cj.com/"},
+            {"Impact Radius",          "https://impact.com/"},
+        }, "#38a169"},
+        {tr("🎓 Cursos & Conteúdo"), {
+            {"Udemy Best Sellers",     "https://www.udemy.com/courses/search/?sort=most_reviewed"},
+            {"Coursera Popular",       "https://www.coursera.org/"},
+            {"Skillshare Trending",    "https://www.skillshare.com/en/browse"},
+            {"Teachable Marketplace",  "https://marketplace.teachable.com/"},
+            {"Gumroad Trending",       "https://discover.gumroad.com/"},
+            {"Patreon Explore",        "https://www.patreon.com/explore"},
+        }, "#805ad5"},
+        {tr("🛍️ Criação de Produtos"), {
+            {"Canva Templates",        "https://www.canva.com/templates/"},
+            {"Creative Market",        "https://creativemarket.com/"},
+            {"Etsy Digital Downloads", "https://www.etsy.com/market/digital_downloads"},
+            {"Ko-fi Creators",         "https://ko-fi.com/explore"},
+            {"Notion Templates",       "https://www.notion.so/templates"},
+            {"Fiverr Gig Trends",      "https://www.fiverr.com/gigs"},
+        }, "#3182ce"},
+    }), tr("💰 Produtos Digitais"));
+
+    // ════ 🎯 CRIADORES DE CONTEÚDO ══════════════════════════════════════════
+    regional->addTab(makePage({
+        {tr("🔍 Pesquisa de Mercado"), {
+            {"AnswerThePublic",        "https://answerthepublic.com/"},
+            {"Exploding Topics",       "https://explodingtopics.com/"},
+            {"Google Trends Global",   "https://trends.google.com/trends/explore"},
+            {"SparkToro",              "https://sparktoro.com/trending"},
+            {"Semrush Free",           "https://www.semrush.com/analytics/keywordoverview/"},
+            {"Ubersuggest Free",       "https://neilpatel.com/ubersuggest/"},
+        }, "#38a169"},
+        {tr("✍️ Escrita & Publicação"), {
+            {"Substack Discover",      "https://substack.com/discover"},
+            {"Medium Trending",        "https://medium.com/explore"},
+            {"Notion Templates",       "https://www.notion.so/templates"},
+            {"Ghost Themes",           "https://ghost.org/themes/"},
+            {"Hashnode Trending",      "https://hashnode.com/"},
+            {"Write.as",               "https://write.as/discover"},
+        }, "#805ad5"},
+        {tr("🎨 Design & Visual"), {
+            {"Dribbble Trending",      "https://dribbble.com/shots/popular"},
+            {"Behance Trending",       "https://www.behance.net/"},
+            {"Pinterest Trends",       "https://www.pinterest.com/ideas/"},
+            {"Unsplash Editorial",     "https://unsplash.com/editorial"},
+            {"Pexels Trending",        "https://www.pexels.com/"},
+            {"Freepik Trending",       "https://www.freepik.com/popular"},
+        }, "#e53e3e"},
+        {tr("📊 Analytics & SEO"), {
+            {"Google Search Console",  "https://search.google.com/search-console/"},
+            {"Google Analytics",       "https://analytics.google.com/"},
+            {"Ahrefs Free Tools",      "https://ahrefs.com/free-seo-tools"},
+            {"Moz Free Tools",         "https://moz.com/free-seo-tools"},
+            {"SimilarWeb",             "https://www.similarweb.com/"},
+            {"SocialBlade",            "https://socialblade.com/"},
+        }, "#d69e2e"},
+    }), tr("🎯 Criadores"));
+
+    // Adiciona a aba regional como a 4ª aba principal
+    auto* wrapper = new QWidget();
+    auto* wl = new QVBoxLayout(wrapper);
+    wl->setContentsMargins(0, 4, 0, 0);
+    wl->addWidget(regional);
+    tabs->addTab(wrapper, QIcon::fromTheme("go-up"), tr("📈 Em Alta"));
 }

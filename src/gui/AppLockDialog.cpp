@@ -1,5 +1,6 @@
 #include "AppLockDialog.h"
 #include "SecurityQuestionsDialog.h"
+#include "CfdmVersion.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -58,6 +59,13 @@ void AppLockDialog::setupUi(bool firstRun)
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
     layout->addWidget(m_titleLabel);
+
+    // ── Versão ────────────────────────────────────────────────────────────
+    auto* versionLabel = new QLabel(QString("v%1").arg(CFDMNOTE_VERSION));
+    versionLabel->setAlignment(Qt::AlignCenter);
+    versionLabel->setStyleSheet(
+        "color: #3182ce; font-size: 11px; font-weight: bold; letter-spacing: 1px;");
+    layout->addWidget(versionLabel);
 
     m_subtitleLabel = new QLabel(firstRun
         ? tr("Crie uma senha para proteger o CfdmNote")

@@ -62,6 +62,8 @@
 #include "gui/VaultUnlockDialog.h"
 #include "gui/CsvImportDialog.h"
 #include "gui/LinksPanelWidget.h"
+#include "gui/RelatedEntriesWidget.h"
+#include "gui/ReminderPanelWidget.h"
 #include "gui/BackupDialog.h"
 #include "gui/ShareDialog.h"
 #include "gui/ExportNoteDialog.h"
@@ -74,9 +76,10 @@
 #include "notes/NoteManager.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
+#include "CfdmVersion.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "2.0.0";
+static const QString APP_VERSION = CFDMNOTE_VERSION;
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -320,6 +323,18 @@ static NoteEditorWidget* setupNotesTab(DatabaseWidget* dbWidget)
     tabWidget->addTab(linksPanel,
                       QIcon::fromTheme("folder-remote"), QObject::tr("Links"));
 
+    // Aba Relacionados (mesmo domínio + referências manuais cruzadas)
+    auto* relatedWidget = new RelatedEntriesWidget();
+    relatedWidget->setObjectName("relatedEntriesWidget");
+    tabWidget->addTab(relatedWidget,
+                      QIcon::fromTheme("emblem-symbolic-link"), QObject::tr("🔗 Relacionados"));
+
+    // Aba Lembrete (status + edição rápida)
+    auto* reminderPanel = new ReminderPanelWidget();
+    reminderPanel->setObjectName("reminderPanelWidget");
+    tabWidget->addTab(reminderPanel,
+                      QIcon::fromTheme("appointment-new"), QObject::tr("⏰ Lembrete"));
+
     // ── Garante que o painel de abas nunca some ────────────────────────────
     tabWidget->setMinimumHeight(160);
     splitter->setCollapsible(idx, false);   // impede colapso total
@@ -454,14 +469,18 @@ static void connectDbWidget(DatabaseWidget* dbWidget)
 
         QObject::connect(dbWidget, &DatabaseWidget::entrySelectionChanged,
                          noteEditor, [dbWidget, noteEditor]() {
-            auto* gifLabel    = dbWidget->findChild<QLabel*>("gifIconLabel");
-            auto* linksPanel  = dbWidget->findChild<LinksPanelWidget*>();
-            auto* commentEdit = dbWidget->findChild<QPlainTextEdit*>("entryCommentEdit");
+            auto* gifLabel      = dbWidget->findChild<QLabel*>("gifIconLabel");
+            auto* linksPanel    = dbWidget->findChild<LinksPanelWidget*>();
+            auto* commentEdit   = dbWidget->findChild<QPlainTextEdit*>("entryCommentEdit");
+            auto* relatedWidget  = dbWidget->findChild<RelatedEntriesWidget*>();
+            auto* reminderPanel  = dbWidget->findChild<ReminderPanelWidget*>();
             Entry* entry = dbWidget->currentSelectedEntry();
             if (entry) {
                 noteEditor->loadNoteForEntry(entry->uuidToHex());
                 updateGifPreview(gifLabel, entry, dbWidget->database());
-                if (linksPanel) linksPanel->loadEntry(entry, dbWidget->database());
+                if (linksPanel)    linksPanel->loadEntry(entry, dbWidget->database());
+                if (relatedWidget) relatedWidget->setEntry(entry, dbWidget->database());
+                if (reminderPanel) reminderPanel->setEntry(entry, dbWidget->database());
                 if (commentEdit) {
                     commentEdit->blockSignals(true);
                     commentEdit->setPlainText(entry->attributes()->value("CfdmNote::Comment"));
@@ -471,7 +490,9 @@ static void connectDbWidget(DatabaseWidget* dbWidget)
             } else {
                 noteEditor->clearNote();
                 updateGifPreview(gifLabel, nullptr, {});
-                if (linksPanel) linksPanel->clearLinks();
+                if (linksPanel)    linksPanel->clearLinks();
+                if (relatedWidget) relatedWidget->clear();
+                if (reminderPanel) reminderPanel->clear();
                 if (commentEdit) {
                     commentEdit->blockSignals(true);
                     commentEdit->clear();
@@ -480,6 +501,29 @@ static void connectDbWidget(DatabaseWidget* dbWidget)
                 }
             }
         }, Qt::UniqueConnection);
+
+        // Navegação a partir do RelatedEntriesWidget
+        auto* relatedWidget = dbWidget->findChild<RelatedEntriesWidget*>();
+        if (relatedWidget) {
+            QObject::connect(relatedWidget, &RelatedEntriesWidget::navigateRequested,
+                             dbWidget, [dbWidget](const QString& uuidHex) {
+                if (!dbWidget->database()) return;
+                Entry* target = dbWidget->database()->rootGroup()
+                    ->findEntryByUuid(QUuid::fromString(uuidHex));
+                if (!target) return;
+                // Tenta encontrar a search bar e filtrar pelo título
+                const auto lineEdits = dbWidget->findChildren<QLineEdit*>();
+                for (auto* le : lineEdits) {
+                    const QString ph = le->placeholderText().toLower();
+                    if (ph.contains("search") || ph.contains("busca") ||
+                        ph.contains("pesquisa") || ph.contains("procurar")) {
+                        le->setText(target->title());
+                        le->setFocus();
+                        break;
+                    }
+                }
+            }, Qt::UniqueConnection);
+        }
     });
 }
 
@@ -591,6 +635,7 @@ int main(int argc, char* argv[])
 
     // ── Menu CfdmNote ─────────────────────────────────────────────────────────
     QMenu* cfdmMenu = new QMenu(QObject::tr("&CfdmNote"), &mainWindow);
+    cfdmMenu->setToolTipsVisible(true);  // mostra tooltip ao passar mouse sobre cada item
 
     // Abrir aba Notas da entrada selecionada (Ctrl+F9)
     QAction* actNotes = cfdmMenu->addAction(
@@ -1064,6 +1109,131 @@ int main(int argc, char* argv[])
             );
         }
     );
+
+    // ── Tooltips e StatusTips de todos os itens do menu CfdmNote ─────────────
+    actNotes->setToolTip(QObject::tr(
+        "<b>📝 Notas da Entrada</b> <i>(Ctrl+F9)</i><br><br>"
+        "Abre/fecha o painel de Notas da entrada selecionada.<br>"
+        "Edite texto em Markdown, adicione comentários rápidos<br>"
+        "e visualize GIFs animados atribuídos à entrada."));
+    actNotes->setStatusTip(QObject::tr("Abrir/fechar painel de Notas da entrada selecionada (Ctrl+F9)"));
+
+    actOpenVault->setToolTip(QObject::tr(
+        "<b>🔓 Abrir Cofre</b> <i>(Ctrl+Shift+O)</i><br><br>"
+        "Abre o último Cofre Criptografado utilizado.<br>"
+        "Cofres guardam dados sensíveis protegidos por senha<br>"
+        "e/ou arquivo-chave (criptografia AES-256 + Argon2)."));
+    actOpenVault->setStatusTip(QObject::tr("Abrir o último cofre .kdbx criptografado (Ctrl+Shift+O)"));
+
+    actOpenOtherVault->setToolTip(QObject::tr(
+        "<b>🗂️ Abrir Outro Cofre</b><br><br>"
+        "Escolhe qualquer arquivo .kdbx para abrir como Cofre.<br>"
+        "Use para alternar entre diferentes cofres criptografados."));
+    actOpenOtherVault->setStatusTip(QObject::tr("Escolher e abrir outro arquivo .kdbx como cofre"));
+
+    actVault->setToolTip(QObject::tr(
+        "<b>🔒 Criar Cofre Criptografado</b><br><br>"
+        "Cria um novo arquivo .kdbx protegido por senha<br>"
+        "e/ou arquivo-chave. Use para guardar dados realmente<br>"
+        "sensíveis (financeiros, senhas críticas, documentos)."));
+    actVault->setStatusTip(QObject::tr("Criar novo cofre .kdbx criptografado com senha/arquivo-chave"));
+
+    actBackup->setToolTip(QObject::tr(
+        "<b>💾 Backup Externo</b> <i>(Ctrl+Shift+B)</i><br><br>"
+        "Copia o banco de dados para um pendrive ou HD externo.<br>"
+        "Detecta automaticamente mídias removíveis conectadas.<br>"
+        "Mantém histórico dos últimos 20 backups com notas descritivas."));
+    actBackup->setStatusTip(QObject::tr("Fazer backup em pendrive/HD externo (Ctrl+Shift+B)"));
+
+    actImportCsv->setToolTip(QObject::tr(
+        "<b>📋 Importar CSV</b><br><br>"
+        "Importa entradas a partir de um arquivo CSV.<br>"
+        "Compatível com exportações do Chrome, Firefox,<br>"
+        "LastPass, Bitwarden e outros gestores de senhas."));
+    actImportCsv->setStatusTip(QObject::tr("Importar entradas de arquivo .csv (Chrome, Firefox, LastPass, etc.)"));
+
+    actImportTxt->setToolTip(QObject::tr(
+        "<b>📄 Importar TXT</b><br><br>"
+        "Cria entradas a partir de arquivos de texto (.txt).<br>"
+        "O nome do arquivo vira o título da entrada;<br>"
+        "o conteúdo é salvo na aba Notas."));
+    actImportTxt->setStatusTip(QObject::tr("Criar entradas a partir de arquivos .txt"));
+
+    actReminder->setToolTip(QObject::tr(
+        "<b>⏰ Definir Lembrete</b> <i>(Ctrl+Shift+R)</i><br><br>"
+        "Define um lembrete com data e hora para a entrada.<br>"
+        "Suporta recorrência (diária, semanal, mensal).<br>"
+        "Notificação permite adiar, abrir Google Calendar,<br>"
+        "enviar via WhatsApp ou Telegram."));
+    actReminder->setStatusTip(QObject::tr("Definir lembrete com data/hora para a entrada selecionada (Ctrl+Shift+R)"));
+
+    actTranslate->setToolTip(QObject::tr(
+        "<b>🌐 Traduzir Nota</b> <i>(Ctrl+Shift+T)</i><br><br>"
+        "Traduz a nota da entrada para outro idioma.<br>"
+        "Usa LibreTranslate (gratuito, sem cadastro/API key).<br>"
+        "Suporta 22 idiomas: PT, EN, ES, FR, DE, IT, AR, ZH..."));
+    actTranslate->setStatusTip(QObject::tr("Traduzir nota para outro idioma via LibreTranslate (Ctrl+Shift+T)"));
+
+    actNoteSearch->setToolTip(QObject::tr(
+        "<b>🔍 Pesquisar Contexto da Nota</b><br><br>"
+        "Extrai as palavras-chave mais importantes da nota<br>"
+        "e pesquisa automaticamente na web.<br>"
+        "Abre Google, Wikipedia, ChatGPT ou GitHub<br>"
+        "com os termos encontrados."));
+    actNoteSearch->setStatusTip(QObject::tr("Extrair palavras-chave da nota e pesquisar na web"));
+
+    actAudio->setToolTip(QObject::tr(
+        "<b>🎙️ Capturar Áudio / Transcrição</b> <i>(Ctrl+Shift+A)</i><br><br>"
+        "Grava áudio pelo microfone e transcreve para texto.<br>"
+        "A transcrição é inserida automaticamente nas Notas.<br>"
+        "Usa <i>whisper</i> (IA local, sem enviar dados para a nuvem).<br>"
+        "<i>Requer: pip install openai-whisper</i>"));
+    actAudio->setStatusTip(QObject::tr("Gravar áudio e transcrever para a nota com Whisper (Ctrl+Shift+A)"));
+
+    actPowerSearch->setToolTip(QObject::tr(
+        "<b>⚡ Pesquisa Poderosa</b> <i>(Ctrl+Shift+F)</i><br><br>"
+        "Centro de pesquisa completo:<br>"
+        "• <b>Arquivos Locais</b> — busca no disco/pendrive<br>"
+        "• <b>Busca na Web</b> — Google, GitHub, YouTube, Wikipedia<br>"
+        "• <b>Google Dorking</b> — busca avançada com operadores<br>"
+        "• <b>Verificar Link</b> — VirusTotal, Safe Browsing, URLVoid<br>"
+        "• <b>📈 Em Alta</b> — tendências globais por região"));
+    actPowerSearch->setStatusTip(QObject::tr("Pesquisa Poderosa: arquivos + web + dorking + tendências globais (Ctrl+Shift+F)"));
+
+    actExportNote->setToolTip(QObject::tr(
+        "<b>📤 Exportar Nota</b><br><br>"
+        "Exporta a nota da entrada em dois formatos:<br>"
+        "• <b>.txt</b> — texto simples, legível em qualquer programa<br>"
+        "• <b>.cfdmnote</b> — criptografado com AES-256-GCM + senha"));
+    actExportNote->setStatusTip(QObject::tr("Exportar nota como .txt ou .cfdmnote criptografado"));
+
+    actShare->setToolTip(QObject::tr(
+        "<b>📲 Compartilhar Entrada</b><br><br>"
+        "Compartilha o conteúdo da entrada (sem senha) via:<br>"
+        "WhatsApp, Telegram, Discord ou Facebook.<br>"
+        "<i>Nota: a senha da entrada NUNCA é enviada.</i>"));
+    actShare->setStatusTip(QObject::tr("Compartilhar entrada via WhatsApp / Telegram / Discord / Facebook"));
+
+    actCustomIcon->setToolTip(QObject::tr(
+        "<b>🖼️ Definir Ícone da Entrada</b><br><br>"
+        "Define uma imagem personalizada como ícone da entrada.<br>"
+        "Suporta: PNG, JPG, GIF animado, SVG, ICO, WebP.<br>"
+        "GIFs animados ficam visíveis na aba Notas da entrada."));
+    actCustomIcon->setStatusTip(QObject::tr("Definir ícone personalizado para a entrada (PNG, GIF animado, SVG...)"));
+
+    actDbInfo->setToolTip(QObject::tr(
+        "<b>📊 Informações dos Bancos</b> <i>(Ctrl+Shift+I)</i><br><br>"
+        "Mostra informações em tempo real de todos os bancos abertos:<br>"
+        "tamanho do arquivo, número de entradas, grupos,<br>"
+        "datas de criação e de última modificação."));
+    actDbInfo->setStatusTip(QObject::tr("Ver informações dos bancos de dados abertos (Ctrl+Shift+I)"));
+
+    actManual->setToolTip(QObject::tr(
+        "<b>📖 Manual de Consulta</b> <i>(F1)</i><br><br>"
+        "Abre o manual integrado do CfdmNote.<br>"
+        "Inclui índice lateral navegável, busca por palavra<br>"
+        "e renderização Markdown com formatação."));
+    actManual->setStatusTip(QObject::tr("Abrir Manual de Consulta integrado (F1)"));
 
     // Insere o menu CfdmNote antes do menu Ajuda
     QList<QAction*> mbActions = mainWindow.menuBar()->actions();
