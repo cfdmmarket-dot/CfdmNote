@@ -697,9 +697,6 @@ int main(int argc, char* argv[])
     {
         AppLockDialog lockDlg;
         lockDlg.setWindowFlag(Qt::WindowStaysOnTopHint, true);
-        lockDlg.show();
-        lockDlg.raise();
-        lockDlg.activateWindow();
         if (lockDlg.exec() != QDialog::Accepted)
             return 0;
     }

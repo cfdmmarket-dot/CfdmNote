@@ -23,6 +23,8 @@
 #include <QWebEnginePage>
 #include <QWebEngineSettings>
 #include <QFile>
+#include <QTemporaryFile>
+#include <QDir>
 
 // ─── MindMapDialog ────────────────────────────────────────────────────────────
 
@@ -91,7 +93,8 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
         injectMap();
     });
 
-    // Carrega o HTML com JS/CSS embutidos para evitar restrições de qrc:// no WebEngine
+    // Escreve o HTML (com JS/CSS inline) em arquivo temporário e carrega via file://
+    // Isso dá ao Chromium uma origin file:// real, evitando restrições do setHtml
     {
         QFile jsFile(":/cfdmnote/mindmap/mind-elixir.js");
         QFile cssFile(":/cfdmnote/mindmap/mind-elixir.css");
@@ -102,13 +105,26 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
         const QString js  = QString::fromUtf8(jsFile.readAll());
         const QString css = QString::fromUtf8(cssFile.readAll());
         QString html = QString::fromUtf8(htmlFile.readAll());
-        // Substitui as referências externas por conteúdo inline
         html.replace("<link rel=\"stylesheet\" href=\"qrc:/cfdmnote/mindmap/mind-elixir.css\">",
                      "<style>" + css + "</style>");
         html.replace("<script src=\"qrc:/cfdmnote/mindmap/mind-elixir.js\"></script>",
                      "<script>" + js + "</script>");
-        m_webView->setHtml(html, QUrl("qrc:/"));
+
+        QTemporaryFile tmp(QDir::tempPath() + "/cfdmnote_mindmap_XXXXXX.html");
+        tmp.setAutoRemove(false);
+        if (tmp.open()) {
+            tmp.write(html.toUtf8());
+            tmp.close();
+            m_tmpHtmlPath = tmp.fileName();
+            m_webView->load(QUrl::fromLocalFile(m_tmpHtmlPath));
+        }
     }
+
+    // Remove arquivo temporário quando o dialog fechar
+    connect(this, &QDialog::finished, this, [this]() {
+        if (!m_tmpHtmlPath.isEmpty())
+            QFile::remove(m_tmpHtmlPath);
+    });
     splitter->addWidget(m_webView);
 
     // ── Painel lateral de detalhes ────────────────────────────────────────────

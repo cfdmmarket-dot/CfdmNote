@@ -30,4 +30,5 @@ private:
     QLabel*         m_detailSub;
     QLabel*         m_detailBody;
     bool            m_mapLoaded = false;
+    QString         m_tmpHtmlPath;
 };

@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v2.2.2
+## Versão atual: v2.2.3
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -83,6 +83,8 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v2.2.1 — Fix: MindMapDialog carrega JS/CSS inline via setHtml (evita restrições qrc:// no WebEngine) ✓
 - [x] v2.2.2 — Fix: MindMap injeta JSON como objeto JS direto (não string escapada) — robusto com qualquer caractere ✓
 - [x] v2.2.2 — Fix: mind.destroy() chamado antes de recriar o mapa; stack trace no erro em tela ✓
+- [x] v2.2.3 — Fix: AppLockDialog remove show()+raise()+activateWindow() antes de exec() — dialog não fica "fantasma" ✓
+- [x] v2.2.3 — Fix: MindMapDialog carrega HTML via arquivo temporário (file://) em vez de setHtml(qrc:/) — Chromium tem origin real ✓
 - [x] v2.2.0 — Git inicializado com histórico completo desde v1.0.0 ✓
 - [x] v1.5.0 — ReminderManager: verifica a cada 60s, reagenda recorrentes, adiar 1h/8h ✓
 - [x] v1.5.0 — Google Calendar: botão abre browser com evento pré-preenchido (sem OAuth) ✓
