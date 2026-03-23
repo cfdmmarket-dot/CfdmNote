@@ -32,6 +32,11 @@
 #include <QPushButton>
 #include <QMessageBox>
 #include <QAbstractButton>
+#include <QToolButton>
+#include <QToolBar>
+#include <QToolTip>
+#include <QHelpEvent>
+#include <QAbstractItemView>
 
 #include "core/Metadata.h"
 #include "core/EntryAttributes.h"
@@ -63,7 +68,7 @@
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.8.0";
+static const QString APP_VERSION = "1.8.1";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -914,6 +919,79 @@ int main(int argc, char* argv[])
             DatabaseInfoDialog::showInfo(&mainWindow, &mainWindow);
         });
     }
+
+    // ── 022: Botão "⚡ CfdmNote" na toolbar principal ──────────────────────────
+    // Injeta um QToolButton que abre o mesmo cfdmMenu, facilitando o acesso
+    // sem precisar subir até a barra de menus.
+    QTimer::singleShot(700, &mainWindow, [&mainWindow, cfdmMenu]() {
+        const auto toolbars = mainWindow.findChildren<QToolBar*>();
+        if (toolbars.isEmpty()) return;
+        QToolBar* tb = toolbars.first();
+
+        tb->addSeparator();
+
+        auto* btn = new QToolButton(tb);
+        btn->setText(QObject::tr("⚡ CfdmNote"));
+        btn->setIcon(QIcon::fromTheme("system-run"));
+        btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        btn->setPopupMode(QToolButton::InstantPopup);
+        btn->setMenu(cfdmMenu);   // reutiliza o menu já construído
+        btn->setStyleSheet(
+            "QToolButton { font-weight: bold; color: #2b6cb0; padding: 2px 10px; }"
+            "QToolButton:hover { background: #ebf8ff; border-radius: 4px; }"
+            "QToolButton::menu-indicator { width: 0; }");
+        btn->setToolTip(QObject::tr("Acesso rápido a todas as funções CfdmNote"));
+        tb->addWidget(btn);
+    });
+
+    // ── 023: Tooltip rico ao passar o mouse sobre entradas ─────────────────────
+    // Instala event filter nas EntryView para mostrar info da entrada em hover.
+    QTimer::singleShot(1200, &mainWindow, [&mainWindow]() {
+        class EntryTooltipFilter : public QObject {
+        protected:
+            bool eventFilter(QObject* obj, QEvent* ev) override {
+                if (ev->type() != QEvent::ToolTip) return false;
+                auto* view = qobject_cast<QAbstractItemView*>(obj);
+                if (!view) return false;
+                auto* he = static_cast<QHelpEvent*>(ev);
+                const QModelIndex idx = view->indexAt(he->pos());
+                if (!idx.isValid()) return false;
+
+                // Coleta colunas visíveis pelo DisplayRole
+                const auto* model = idx.model();
+                const int row = idx.row();
+                const int cols = model->columnCount();
+
+                QStringList lines;
+                for (int c = 0; c < qMin(cols, 7); ++c) {
+                    const QModelIndex ci = model->index(row, c, idx.parent());
+                    // cabeçalho da coluna como label
+                    const QString hdr = model->headerData(c, Qt::Horizontal, Qt::DisplayRole).toString();
+                    const QString val = ci.data(Qt::DisplayRole).toString();
+                    if (!hdr.isEmpty() && !val.isEmpty() && val != "●●●●●●●●")
+                        lines << QString("<b>%1:</b> %2")
+                                    .arg(hdr.toHtmlEscaped(), val.toHtmlEscaped());
+                }
+                if (lines.isEmpty()) return false;
+
+                QToolTip::showText(he->globalPos(),
+                    "<div style='font-size:12px;line-height:1.6'>" +
+                    lines.join("<br>") + "</div>",
+                    view, view->visualRect(idx));
+                ev->accept();
+                return true;
+            }
+        };
+
+        // Instala em todos os QAbstractItemView dentro dos DatabaseWidgets
+        for (auto* view : mainWindow.findChildren<QAbstractItemView*>()) {
+            if (view->objectName().contains("entry", Qt::CaseInsensitive) ||
+                view->inherits("EntryView"))
+            {
+                view->installEventFilter(new EntryTooltipFilter());
+            }
+        }
+    });
 
     // ── Abre banco principal (sem senha) → substitui a tela de boas-vendas ──
     // O cofre criptografado só abre quando invocado pelo menu CfdmNote
