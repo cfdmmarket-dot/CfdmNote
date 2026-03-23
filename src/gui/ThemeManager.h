@@ -378,30 +378,30 @@ QMenu::separator {
 QMenu::icon { padding-left: 6px; }
 
 /* ── Toolbar ───────────────────────────────────────── */
-/* Fundo médio-claro (#d6e8f8 → #c2d9f0) para ícones pretos serem legíveis */
+/* Fundo navy escuro — texto e ícones brancos */
 QToolBar {
     background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-        stop:0 #d6e8f8, stop:1 #c2d9f0);
+        stop:0 #1e3a5f, stop:1 #17304f);
     border: none;
-    border-bottom: 1px solid #90cdf4;
+    border-bottom: 2px solid #2c5282;
     spacing: 3px;
     padding: 2px 4px;
 }
 QToolBar::separator {
-    background: #90cdf4;
+    background: #4a86c8;
     width: 1px;
     margin: 4px 3px;
 }
 QToolButton {
-    color: #1a365d;
+    color: #ffffff;
     border: none;
     border-radius: 4px;
     padding: 4px 8px;
 }
 QToolButton:hover {
-    background: #bee3f8;
-    color: #1a365d;
-    border: 1px solid #90cdf4;
+    background: #2c5282;
+    color: #ffffff;
+    border: 1px solid #4a86c8;
 }
 QToolButton:pressed, QToolButton:checked {
     background: #3182ce;

@@ -85,12 +85,12 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
                      obj["type"].toString());
     });
 
-    // Injeta o mapa quando a página carregar
+    // Injeta o mapa quando a página carregar — delay 300ms para garantir layout do WebView
     connect(m_webView, &QWebEngineView::loadFinished, this,
             [this](bool ok) {
         if (!ok) return;
         m_mapLoaded = true;
-        injectMap();
+        QTimer::singleShot(300, this, [this]() { injectMap(); });
     });
 
     // Escreve o HTML (com JS/CSS inline) em arquivo temporário e carrega via file://
@@ -223,7 +223,7 @@ QString MindMapDialog::groupToJson(Group* g, int colorIdx) const
     obj["style"] = QJsonObject{
         {"background", color},
         {"color", "#ffffff"},
-        {"border-radius", "8px"},
+        {"borderRadius", "8px"},
         {"padding", "4px 12px"}
     };
 
@@ -248,8 +248,8 @@ QString MindMapDialog::groupToJson(Group* g, int colorIdx) const
                 {"background", QColor(color).lighter(175).name()},
                 {"color", "#1a202c"},
                 {"border", "1px solid " + color},
-                {"border-radius", "5px"},
-                {"font-size", "12px"}
+                {"borderRadius", "5px"},
+                {"fontSize", "12px"}
             };
             children.append(eObj);
         }
@@ -275,14 +275,10 @@ QString MindMapDialog::buildJson() const
     root["style"] = QJsonObject{
         {"background", "#2c5282"},
         {"color", "#ffffff"},
-        {"font-weight", "bold"},
-        {"border-radius", "50%"},
+        {"fontWeight", "bold"},
+        {"borderRadius", "50%"},
         {"width", "90px"},
-        {"height", "90px"},
-        {"display", "flex"},
-        {"align-items", "center"},
-        {"justify-content", "center"},
-        {"text-align", "center"}
+        {"height", "90px"}
     };
 
     QJsonArray children;
