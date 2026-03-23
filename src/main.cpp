@@ -900,7 +900,8 @@ int main(int argc, char* argv[])
         "<b>📁 Criar Grupo</b><br><br>"
         "Cria um novo grupo escolhendo onde ele ficará:<br>"
         "na raiz ou dentro de qualquer grupo existente."));
-    actCreateGroup->setStatusTip(QObject::tr("Criar grupo com escolha do grupo pai"));
+    actCreateGroup->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_G));
+    actCreateGroup->setStatusTip(QObject::tr("Criar grupo com escolha do grupo pai (Ctrl+Shift+G)"));
     QObject::connect(actCreateGroup, &QAction::triggered, [&mainWindow]() {
         auto* dbTab = mainWindow.findChild<DatabaseTabWidget*>();
         if (!dbTab) return;
@@ -1002,6 +1003,122 @@ int main(int argc, char* argv[])
         });
 
         editNome->setFocus();
+        dlg.exec();
+    });
+
+    // Mover Grupo para outro pai
+    QAction* actMoveGroup = cfdmMenu->addAction(
+        QIcon::fromTheme("edit-cut"),
+        QObject::tr("✂️ Mover &Grupo...")
+    );
+    actMoveGroup->setToolTip(QObject::tr(
+        "<b>✂️ Mover Grupo</b><br><br>"
+        "Move um grupo existente para dentro de outro grupo.<br>"
+        "Selecione o grupo a mover e o destino."));
+    QObject::connect(actMoveGroup, &QAction::triggered, [&mainWindow]() {
+        auto* dbTab = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTab) return;
+        auto* dbWidget = dbTab->currentDatabaseWidget();
+        if (!dbWidget) return;
+        auto db = dbWidget->database();
+        if (!db) return;
+
+        QDialog dlg(&mainWindow);
+        dlg.setWindowTitle(QObject::tr("Mover Grupo"));
+        dlg.setFixedWidth(400);
+        auto* lay = new QVBoxLayout(&dlg);
+        lay->setSpacing(12);
+        lay->setContentsMargins(20, 20, 20, 20);
+
+        auto* lblMover = new QLabel(QObject::tr("Grupo a mover:"));
+        lblMover->setStyleSheet("font-weight: bold;");
+        auto* cmbMover = new QComboBox();
+        cmbMover->setFixedHeight(34);
+
+        auto* lblDest = new QLabel(QObject::tr("Mover para dentro de:"));
+        lblDest->setStyleSheet("font-weight: bold;");
+        auto* cmbDest = new QComboBox();
+        cmbDest->setFixedHeight(34);
+
+        std::function<void(Group*, int)> addGroups2 = [&](Group* g, int depth) {
+            if (g == db->metadata()->recycleBin()) return;
+            const QString indent = QString("  ").repeated(depth);
+            const QString icon = depth == 0 ? "🏠 " : "📁 ";
+            const QString label = indent + icon + g->name();
+            const QVariant ptr = QVariant::fromValue(static_cast<void*>(g));
+            if (depth > 0) cmbMover->addItem(label, ptr);
+            cmbDest->addItem(label, ptr);
+            for (auto* child : g->children()) addGroups2(child, depth + 1);
+        };
+        addGroups2(db->rootGroup(), 0);
+
+        // Pré-seleciona grupo atual na lista "a mover"
+        auto* current = dbWidget->currentGroup();
+        if (current && current != db->rootGroup()) {
+            for (int i = 0; i < cmbMover->count(); ++i) {
+                if (cmbMover->itemData(i).value<void*>() == static_cast<void*>(current)) {
+                    cmbMover->setCurrentIndex(i);
+                    break;
+                }
+            }
+        }
+
+        auto* errLbl = new QLabel();
+        errLbl->setStyleSheet("color: #e53e3e; font-size: 11px;");
+
+        auto* btnRow = new QHBoxLayout();
+        auto* btnOk = new QPushButton(QObject::tr("✅ Mover"));
+        btnOk->setDefault(true);
+        btnOk->setFixedHeight(36);
+        btnOk->setStyleSheet("QPushButton { background: #3182ce; color: white; border-radius: 5px; "
+                             "font-weight: bold; padding: 0 16px; } "
+                             "QPushButton:hover { background: #4299e1; }");
+        auto* btnCancel = new QPushButton(QObject::tr("Cancelar"));
+        btnCancel->setFixedHeight(36);
+        btnRow->addStretch();
+        btnRow->addWidget(btnCancel);
+        btnRow->addWidget(btnOk);
+
+        lay->addWidget(lblMover);
+        lay->addWidget(cmbMover);
+        lay->addWidget(lblDest);
+        lay->addWidget(cmbDest);
+        lay->addWidget(errLbl);
+        lay->addLayout(btnRow);
+
+        QObject::connect(btnCancel, &QPushButton::clicked, &dlg, &QDialog::reject);
+        QObject::connect(btnOk, &QPushButton::clicked, &dlg, [&]() {
+            auto* grpMover = static_cast<Group*>(cmbMover->currentData().value<void*>());
+            auto* grpDest  = static_cast<Group*>(cmbDest->currentData().value<void*>());
+            if (!grpMover || !grpDest) {
+                errLbl->setText(QObject::tr("⚠️ Selecione o grupo a mover e o destino."));
+                return;
+            }
+            if (grpMover == grpDest) {
+                errLbl->setText(QObject::tr("⚠️ O grupo de origem e destino são iguais."));
+                return;
+            }
+            // Verifica se destino não é descendente de origem (evita ciclo)
+            Group* check = grpDest;
+            while (check) {
+                if (check == grpMover) {
+                    errLbl->setText(QObject::tr("⚠️ Não é possível mover um grupo para dentro de si mesmo."));
+                    return;
+                }
+                check = check->parentGroup();
+            }
+            const QString nomeMover = grpMover->name();
+            const QString nomeDest  = grpDest->name();
+            grpMover->setParent(grpDest);
+            QString err;
+            db->save(Database::Atomic, {}, &err);
+            dlg.accept();
+            QMessageBox::information(&mainWindow,
+                QObject::tr("Grupo movido"),
+                QObject::tr("Grupo <b>%1</b> movido para <b>%2</b>.")
+                    .arg(nomeMover.toHtmlEscaped(), nomeDest.toHtmlEscaped()));
+        });
+
         dlg.exec();
     });
 
@@ -1664,10 +1781,8 @@ int main(int argc, char* argv[])
         }
     });
 
-    // ── 022: Botão "⚡ CfdmNote" na toolbar principal ──────────────────────────
-    // Injeta um QToolButton que abre o mesmo cfdmMenu, facilitando o acesso
-    // sem precisar subir até a barra de menus.
-    QTimer::singleShot(700, &mainWindow, [&mainWindow, cfdmMenu]() {
+    // ── Botão 🤖 IA na toolbar — reservado para CFDM Triplex (feature 012) ───────
+    QTimer::singleShot(700, &mainWindow, [&mainWindow]() {
         const auto toolbars = mainWindow.findChildren<QToolBar*>();
         if (toolbars.isEmpty()) return;
         QToolBar* tb = toolbars.first();
@@ -1675,16 +1790,30 @@ int main(int argc, char* argv[])
         tb->addSeparator();
 
         auto* btn = new QToolButton(tb);
-        btn->setText(QObject::tr("⚡ CfdmNote"));
+        btn->setText(QObject::tr("🤖 IA"));
         btn->setIcon(QIcon::fromTheme("system-run"));
         btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-        btn->setPopupMode(QToolButton::InstantPopup);
-        btn->setMenu(cfdmMenu);   // reutiliza o menu já construído
         btn->setStyleSheet(
-            "QToolButton { font-weight: bold; color: #2b6cb0; padding: 2px 10px; }"
-            "QToolButton:hover { background: #ebf8ff; border-radius: 4px; }"
-            "QToolButton::menu-indicator { width: 0; }");
-        btn->setToolTip(QObject::tr("Acesso rápido a todas as funções CfdmNote"));
+            "QToolButton { font-weight: bold; color: #805ad5; padding: 2px 10px; }"
+            "QToolButton:hover { background: #faf5ff; border-radius: 4px; }"
+            "QToolButton:pressed { background: #e9d8fd; }");
+        btn->setToolTip(QObject::tr(
+            "<b>🤖 Assistente de IA</b><br><br>"
+            "Em desenvolvimento — CFDM Triplex<br>"
+            "<i>Analisa entradas, notas e grupos com IA.<br>"
+            "Disponível em versão futura.</i>"));
+        QObject::connect(btn, &QToolButton::clicked, &mainWindow, [&mainWindow]() {
+            QMessageBox::information(&mainWindow,
+                QObject::tr("🤖 Assistente de IA"),
+                QObject::tr(
+                    "<b>CFDM Triplex — Em desenvolvimento</b><br><br>"
+                    "Este botão irá conectar o CfdmNote ao motor de agentes de IA.<br><br>"
+                    "Funcionalidades previstas:<br>"
+                    "• Análise de entradas e notas por IA<br>"
+                    "• Geração de conteúdo a partir das suas anotações<br>"
+                    "• Integração bidirecional com CFDM Triplex<br><br>"
+                    "<i>Disponível em versão futura.</i>"));
+        });
         tb->addWidget(btn);
     });
 
