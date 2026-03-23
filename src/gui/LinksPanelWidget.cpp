@@ -12,6 +12,7 @@
 #include <QScrollArea>
 #include <QApplication>
 #include <QStorageInfo>
+#include <QMenu>
 
 #include "core/Entry.h"
 #include "core/Database.h"
@@ -39,7 +40,14 @@ LinksPanelWidget::LinksPanelWidget(QWidget* parent)
         buildSection(tr("Local Disk"), "🖴",
                      m_localList, m_btnAddLocal, m_btnRemLocal, m_btnOpenLocal)
     );
-    connect(m_btnAddLocal,  &QPushButton::clicked, this, &LinksPanelWidget::onAddLocal);
+    {
+        auto* menu = new QMenu(m_btnAddLocal);
+        menu->addAction(QIcon::fromTheme("folder"), tr("Pasta..."),
+                        this, [this]() { addPathToList(m_localList, KEY_LOCAL); });
+        menu->addAction(QIcon::fromTheme("text-x-generic"), tr("Arquivo(s)..."),
+                        this, [this]() { addFileToList(m_localList, KEY_LOCAL); });
+        m_btnAddLocal->setMenu(menu);
+    }
     connect(m_btnRemLocal,  &QPushButton::clicked, this, &LinksPanelWidget::onRemoveLocal);
     connect(m_btnOpenLocal, &QPushButton::clicked, this, &LinksPanelWidget::onOpenLocal);
     connect(m_localList, &QListWidget::itemDoubleClicked,
@@ -50,7 +58,14 @@ LinksPanelWidget::LinksPanelWidget(QWidget* parent)
         buildSection(tr("External / Removable Disk"), "💿",
                      m_removableList, m_btnAddRemovable, m_btnRemRemovable, m_btnOpenRemovable)
     );
-    connect(m_btnAddRemovable,  &QPushButton::clicked, this, &LinksPanelWidget::onAddRemovable);
+    {
+        auto* menu = new QMenu(m_btnAddRemovable);
+        menu->addAction(QIcon::fromTheme("folder"), tr("Pasta..."),
+                        this, [this]() { addPathToList(m_removableList, KEY_REMOVABLE); });
+        menu->addAction(QIcon::fromTheme("text-x-generic"), tr("Arquivo(s)..."),
+                        this, [this]() { addFileToList(m_removableList, KEY_REMOVABLE); });
+        m_btnAddRemovable->setMenu(menu);
+    }
     connect(m_btnRemRemovable,  &QPushButton::clicked, this, &LinksPanelWidget::onRemoveRemovable);
     connect(m_btnOpenRemovable, &QPushButton::clicked, this, &LinksPanelWidget::onOpenRemovable);
     connect(m_removableList, &QListWidget::itemDoubleClicked,
@@ -189,21 +204,33 @@ static QString formatDriveInfo(const QString& path)
 
 void LinksPanelWidget::refreshItemIcons(QListWidget* list)
 {
-    const QIcon iconOk      = QIcon::fromTheme("folder");
-    const QIcon iconMissing = QIcon::fromTheme("folder-visiting",
-                              QIcon::fromTheme("dialog-warning"));
+    const QIcon iconFolder  = QIcon::fromTheme("folder");
+    const QIcon iconFile    = QIcon::fromTheme("text-x-generic");
+    const QIcon iconMissing = QIcon::fromTheme("dialog-warning");
 
     for (int i = 0; i < list->count(); ++i) {
         auto* item = list->item(i);
-        const QString path   = item->data(Qt::UserRole).toString();
-        const bool    exists = QFileInfo::exists(path);
+        const QString path = item->data(Qt::UserRole).toString();
+        const QFileInfo fi(path);
+        const bool exists = fi.exists();
+        const bool isFile = exists && fi.isFile();
 
-        item->setText(formatDriveInfo(path));
-        item->setIcon(exists ? iconOk : iconMissing);
-        item->setToolTip(exists ? tr("Clique duplo para abrir: %1").arg(path)
-                                : tr("⚠ Não encontrado (mídia desmontada?):\n%1").arg(path));
-        item->setForeground(exists ? QApplication::palette().text()
-                                   : QBrush(QColor("#e05050")));
+        if (exists) {
+            if (isFile) {
+                item->setText(fi.fileName() + "\n  └─ " + fi.dir().path());
+                item->setIcon(iconFile);
+            } else {
+                item->setText(formatDriveInfo(path));
+                item->setIcon(iconFolder);
+            }
+            item->setToolTip(tr("Clique duplo para abrir: %1").arg(path));
+            item->setForeground(QApplication::palette().text());
+        } else {
+            item->setText(formatDriveInfo(path));
+            item->setIcon(iconMissing);
+            item->setToolTip(tr("⚠ Não encontrado (mídia desmontada?):\n%1").arg(path));
+            item->setForeground(QBrush(QColor("#e05050")));
+        }
     }
 }
 
@@ -263,6 +290,37 @@ void LinksPanelWidget::addPathToList(QListWidget* list, const QString& /*typeKey
     auto* item = new QListWidgetItem(path);
     item->setData(Qt::UserRole, path);
     list->addItem(item);
+    refreshItemIcons(list);
+    saveLinks();
+}
+
+// ─── Adicionar arquivo(s) ─────────────────────────────────────────────────────
+
+void LinksPanelWidget::addFileToList(QListWidget* list, const QString& /*typeKey*/)
+{
+    if (!m_entry) {
+        QMessageBox::information(this, tr("Links"), tr("Selecione uma entrada primeiro."));
+        return;
+    }
+
+    const QStringList files = QFileDialog::getOpenFileNames(
+        this, tr("Selecionar arquivo(s)"),
+        QDir::homePath(),
+        tr("Todos os arquivos (*)")
+    );
+    if (files.isEmpty()) return;
+
+    for (const QString& path : files) {
+        if (path.isEmpty()) continue;
+        bool dup = false;
+        for (int i = 0; i < list->count(); ++i)
+            if (list->item(i)->data(Qt::UserRole).toString() == path) { dup = true; break; }
+        if (dup) continue;
+
+        auto* item = new QListWidgetItem(path);
+        item->setData(Qt::UserRole, path);
+        list->addItem(item);
+    }
     refreshItemIcons(list);
     saveLinks();
 }

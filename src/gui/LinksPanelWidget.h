@@ -54,6 +54,7 @@ private:
     void saveLinks();
     void openPath(const QString& path);
     void addPathToList(QListWidget* list, const QString& typeKey);
+    void addFileToList(QListWidget* list, const QString& typeKey);
 
     QListWidget* m_localList     = nullptr;
     QPushButton* m_btnAddLocal   = nullptr;

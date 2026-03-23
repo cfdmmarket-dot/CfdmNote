@@ -21,10 +21,14 @@
 #include <QMovie>
 #include <QSplitter>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QFrame>
+#include <QPlainTextEdit>
 #include <QDateTime>
 #include <QFileInfo>
 
 #include "core/Metadata.h"
+#include "core/EntryAttributes.h"
 
 // Motor interno do CfdmNote
 #include "gui/Application.h"
@@ -46,7 +50,7 @@
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.2.2";
+static const QString APP_VERSION = "1.3.0";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -175,6 +179,29 @@ static NoteEditorWidget* setupNotesTab(DatabaseWidget* dbWidget)
     gifLabel->setVisible(false);
     notesLayout->addWidget(gifLabel);
 
+    // ── Campo "Comentário" (observação rápida por entrada) ─────────────────
+    auto* commentFrame = new QFrame();
+    commentFrame->setStyleSheet("QFrame { border: 0; background: transparent; }");
+    auto* commentRowLayout = new QHBoxLayout(commentFrame);
+    commentRowLayout->setContentsMargins(4, 4, 4, 0);
+    commentRowLayout->setSpacing(6);
+
+    auto* commentLabel = new QLabel(QObject::tr("Comentário:"));
+    commentLabel->setStyleSheet("font-size: 11px; font-weight: bold;");
+    commentLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    commentLabel->setFixedWidth(82);
+    commentRowLayout->addWidget(commentLabel);
+
+    auto* commentEdit = new QPlainTextEdit();
+    commentEdit->setObjectName("entryCommentEdit");
+    commentEdit->setMaximumHeight(60);
+    commentEdit->setPlaceholderText(QObject::tr("Observação rápida sobre esta entrada..."));
+    commentEdit->setStyleSheet("font-size: 11px; border: 1px solid palette(mid); "
+                               "border-radius: 3px; padding: 2px;");
+    commentEdit->setEnabled(false);
+    commentRowLayout->addWidget(commentEdit, 1);
+    notesLayout->addWidget(commentFrame);
+
     auto* noteEditor = new NoteEditorWidget();
     notesLayout->addWidget(noteEditor, 1);
 
@@ -240,24 +267,57 @@ static void connectDbWidget(DatabaseWidget* dbWidget)
     QTimer::singleShot(400, dbWidget, [dbWidget]() {
         auto* noteEditor = setupNotesTab(dbWidget);
         if (!noteEditor) {
-            // Já configurado — garante que o NoteEditorWidget existente está conectado
             noteEditor = dbWidget->findChild<NoteEditorWidget*>();
             if (!noteEditor) return;
+        }
+
+        // Debounce timer para salvar comentário após 600ms sem digitar
+        auto* commentEdit = dbWidget->findChild<QPlainTextEdit*>("entryCommentEdit");
+        if (commentEdit) {
+            auto* commentTimer = new QTimer(commentEdit);
+            commentTimer->setSingleShot(true);
+            commentTimer->setInterval(600);
+            QObject::connect(commentEdit, &QPlainTextEdit::textChanged, commentTimer,
+                [commentTimer]() { commentTimer->start(); }, Qt::UniqueConnection);
+            QObject::connect(commentTimer, &QTimer::timeout, commentEdit,
+                [dbWidget]() {
+                    auto* ce = dbWidget->findChild<QPlainTextEdit*>("entryCommentEdit");
+                    if (!ce) return;
+                    auto* currentEntry = dbWidget->currentSelectedEntry();
+                    if (!currentEntry || !dbWidget->database()) return;
+                    currentEntry->attributes()->set(
+                        "CfdmNote::Comment", ce->toPlainText(), false);
+                    QString err;
+                    dbWidget->database()->save(Database::Atomic, {}, &err);
+                }, Qt::UniqueConnection);
         }
 
         QObject::connect(dbWidget, &DatabaseWidget::entrySelectionChanged,
                          noteEditor, [dbWidget, noteEditor]() {
             auto* gifLabel    = dbWidget->findChild<QLabel*>("gifIconLabel");
             auto* linksPanel  = dbWidget->findChild<LinksPanelWidget*>();
+            auto* commentEdit = dbWidget->findChild<QPlainTextEdit*>("entryCommentEdit");
             Entry* entry = dbWidget->currentSelectedEntry();
             if (entry) {
                 noteEditor->loadNoteForEntry(entry->uuidToHex());
                 updateGifPreview(gifLabel, entry, dbWidget->database());
                 if (linksPanel) linksPanel->loadEntry(entry, dbWidget->database());
+                if (commentEdit) {
+                    commentEdit->blockSignals(true);
+                    commentEdit->setPlainText(entry->attributes()->value("CfdmNote::Comment"));
+                    commentEdit->blockSignals(false);
+                    commentEdit->setEnabled(true);
+                }
             } else {
                 noteEditor->clearNote();
                 updateGifPreview(gifLabel, nullptr, {});
                 if (linksPanel) linksPanel->clearLinks();
+                if (commentEdit) {
+                    commentEdit->blockSignals(true);
+                    commentEdit->clear();
+                    commentEdit->blockSignals(false);
+                    commentEdit->setEnabled(false);
+                }
             }
         }, Qt::UniqueConnection);
     });
@@ -461,6 +521,60 @@ int main(int argc, char* argv[])
             db = tabWidget->currentDatabaseWidget()->database();
         }
         CsvImportDialog::runImport(db, &mainWindow, &mainWindow);
+    });
+
+    // Importar TXT — cria entradas a partir de arquivos de texto
+    QAction* actImportTxt = cfdmMenu->addAction(
+        QIcon::fromTheme("text-plain"),
+        QObject::tr("Importar &TXT...")
+    );
+    QObject::connect(actImportTxt, &QAction::triggered, [&mainWindow, busyOverlay]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTabWidget || !dbTabWidget->currentDatabaseWidget()) {
+            QMessageBox::warning(&mainWindow, QObject::tr("Importar TXT"),
+                QObject::tr("Abra um banco de dados primeiro."));
+            return;
+        }
+        auto db = dbTabWidget->currentDatabaseWidget()->database();
+        if (!db) return;
+
+        const QStringList files = QFileDialog::getOpenFileNames(
+            &mainWindow, QObject::tr("Selecionar arquivos TXT"),
+            QDir::homePath(),
+            QObject::tr("Arquivos de texto (*.txt);;Todos os arquivos (*)")
+        );
+        if (files.isEmpty()) return;
+
+        busyOverlay->setGeometry(mainWindow.rect());
+        busyOverlay->raise();
+        busyOverlay->setVisible(true);
+        QApplication::processEvents();
+
+        auto* root = db->rootGroup();
+        int count = 0;
+        for (const QString& filePath : files) {
+            QFile f(filePath);
+            if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
+            const QString content = QString::fromUtf8(f.readAll());
+            f.close();
+
+            auto* entry = new Entry();
+            entry->setTitle(QFileInfo(filePath).completeBaseName());
+            entry->setNotes(content);
+            entry->setGroup(root);
+            ++count;
+            QApplication::processEvents();
+        }
+
+        busyOverlay->setVisible(false);
+
+        QString saveErr;
+        db->save(Database::Atomic, {}, &saveErr);
+
+        QMessageBox::information(&mainWindow, QObject::tr("Importar TXT"),
+            saveErr.isEmpty()
+                ? QObject::tr("%1 arquivo(s) importado(s) com sucesso.").arg(count)
+                : QObject::tr("%1 arquivo(s) importado(s). Aviso: %2").arg(count).arg(saveErr));
     });
 
     cfdmMenu->addSeparator();

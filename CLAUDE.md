@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v1.2.2
+## Versão atual: v1.3.0
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -42,6 +42,9 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v1.2.0 — Aba "Links" na entrada: Local Disk + External/Removable com info de unidade
 - [x] v1.2.1 — Backup Externo (Ctrl+Shift+B): detecção de mídias, nota descritiva, histórico 20 entradas ✓
 - [x] v1.2.2 — Backup: lista de unidades filtrada (só dispositivos físicos /dev/sd*, nvme*) ✓
+- [x] v1.3.0 — Campo "Comentário" na aba Notas: observação rápida por entrada (CfdmNote::Comment) ✓
+- [x] v1.3.0 — Importar TXT: cria entradas a partir de arquivos .txt (título = nome do arquivo) ✓
+- [x] v1.3.0 — Links: suporte a arquivos além de pastas; botão "Adicionar" com menu Pasta/Arquivo(s) ✓
 
 ## Arquitetura atual
 ```
@@ -60,8 +63,8 @@ DatabaseWidget (por banco aberto)
         ├── [0] entryView             ← lista de entradas (KeePassXC)
         └── [1] QTabWidget "notesTabWidget"  ← NOSSO
               ├── Tab 0 "Detalhes"    ← previewView original (KeePassXC)
-              ├── Tab 1 "Notas"       ← NoteEditorWidget + gifLabel (GIF animado)
-              └── Tab 2 "Links"       ← LinksPanelWidget
+              ├── Tab 1 "Notas"       ← gifLabel + commentEdit (QPlainTextEdit) + NoteEditorWidget
+              └── Tab 2 "Links"       ← LinksPanelWidget (pasta e arquivo; botão menu)
 ```
 
 ## Menu CfdmNote (itens)
@@ -72,6 +75,7 @@ DatabaseWidget (por banco aberto)
 | Abrir outro cofre... | — | Sempre seletor |
 | Criar Cofre Criptografado... | — | VaultDialog |
 | Importar CSV... | — | CsvImportDialog (barra progresso) |
+| Importar TXT... | — | Importa .txt como entradas (título=nome do arquivo) |
 | Definir ícone da entrada... | — | Ícone personalizado (PNG/GIF/etc) |
 | Sobre CfdmNote | — | Caixa sobre |
 
