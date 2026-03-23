@@ -36,23 +36,11 @@
 <script>
 var mind = null;
 
-// Paleta de cores por índice de grupo
-var COLORS = [
-  '#3182ce','#38a169','#dd6b20','#805ad5',
-  '#e53e3e','#00b5d8','#d69e2e','#319795',
-  '#667eea','#ed64a6'
-];
-
-function colorFor(idx) {
-  return COLORS[idx % COLORS.length];
-}
-
-// Recebe o JSON do banco e inicializa o mapa
-function initMindMap(jsonStr) {
+// Recebe o objeto de dados do banco e inicializa o mapa
+// data: objeto JS (não string) — injetado diretamente pelo Qt via runJavaScript
+function initMindMap(data) {
   try {
-    var data = JSON.parse(jsonStr);
-
-    // O IIFE exporta o construtor em .default — MindElixir em si é o módulo
+    // Resolve o construtor: IIFE exporta em .default
     var ME = (typeof MindElixir === 'function') ? MindElixir
            : (MindElixir && MindElixir.default) ? MindElixir.default
            : null;
@@ -64,8 +52,9 @@ function initMindMap(jsonStr) {
       return;
     }
 
-    // Se já existe, destroi e recria
+    // Destroi instância anterior corretamente
     if (mind) {
+      if (typeof mind.destroy === 'function') mind.destroy();
       document.getElementById('map').innerHTML = '';
       mind = null;
     }
@@ -73,7 +62,6 @@ function initMindMap(jsonStr) {
     mind = new ME({
       el: '#map',
       direction: ME.SIDE !== undefined ? ME.SIDE : 2,
-      data: data,
       draggable: true,
       contextMenu: false,
       toolBar: true,
@@ -94,20 +82,15 @@ function initMindMap(jsonStr) {
         topic: node.topic || '',
         type:  node.type  || 'group'
       });
-      // Envia para Qt via title (interceptado pelo Qt)
       document.title = 'SELECT:' + payload;
     });
 
   } catch(e) {
     document.body.innerHTML =
       '<div style="color:white;padding:20px;font-family:sans-serif;">'
-      + '<b>Erro ao carregar mapa mental:</b><br>' + e.message + '</div>';
+      + '<b>Erro ao carregar mapa mental:</b><br>' + e.message
+      + '<br><pre style="font-size:10px;color:#fbb">' + e.stack + '</pre></div>';
   }
-}
-
-// Chamada pelo Qt para atualizar o mapa sem recriar
-function updateMindMap(jsonStr) {
-  initMindMap(jsonStr);
 }
 </script>
 </body>

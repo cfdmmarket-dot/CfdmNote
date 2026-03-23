@@ -288,9 +288,8 @@ QString MindMapDialog::buildJson() const
 void MindMapDialog::injectMap()
 {
     if (!m_mapLoaded) return;
-    const QString json    = buildJson();
-    const QString escaped = QString(json).replace("\\", "\\\\").replace("'", "\\'");
-    const QString js      = QString("initMindMap('%1');").arg(escaped);
+    // Injeta o JSON como objeto JS diretamente — evita problemas de escaping
+    const QString js = QString("initMindMap(%1);").arg(buildJson());
     m_webView->page()->runJavaScript(js);
 }
 
