@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v1.5.0
+## Versão atual: v1.6.0
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -49,6 +49,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v1.4.0 — Exportar nota criptografada: AES-256-GCM + PBKDF2-SHA256 → arquivo .cfdmnote ✓
 - [x] v1.4.0 — Compartilhar entrada via WhatsApp/Telegram/Discord/Facebook (sem senha) ✓
 - [x] v1.5.0 — Lembretes por entrada: data/hora, recorrência, notificação com adiar/WhatsApp/Telegram ✓
+- [x] v1.6.0 — Manual de Consulta integrado (F1): índice lateral, busca, renderização Markdown ✓
 - [x] v1.5.0 — ReminderManager: verifica a cada 60s, reagenda recorrentes, adiar 1h/8h ✓
 - [x] v1.5.0 — Google Calendar: botão abre browser com evento pré-preenchido (sem OAuth) ✓
 

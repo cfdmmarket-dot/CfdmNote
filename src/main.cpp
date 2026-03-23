@@ -52,11 +52,12 @@
 #include "gui/ShareDialog.h"
 #include "gui/ExportNoteDialog.h"
 #include "gui/ReminderDialog.h"
+#include "gui/ManualDialog.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.5.0";
+static const QString APP_VERSION = "1.6.0";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -746,6 +747,16 @@ int main(int argc, char* argv[])
     });
 
     cfdmMenu->addSeparator();
+
+    // Manual de Consulta (F1)
+    QAction* actManual = cfdmMenu->addAction(
+        QIcon::fromTheme("help-contents"),
+        QObject::tr("&Manual de Consulta")
+    );
+    actManual->setShortcut(QKeySequence(Qt::Key_F1));
+    QObject::connect(actManual, &QAction::triggered, [&mainWindow]() {
+        ManualDialog::showManual(&mainWindow);
+    });
 
     // Sobre CfdmNote
     QObject::connect(
