@@ -1,0 +1,18 @@
+#!/bin/bash
+# AppRun — ponto de entrada do CfdmNote AppImage
+HERE="$(dirname "$(readlink -f "${0}")")"
+
+export PATH="${HERE}/usr/bin:${PATH}"
+export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+
+# Qt plugins
+export QT_PLUGIN_PATH="${HERE}/usr/plugins"
+export QT_QPA_PLATFORM_PLUGIN_PATH="${HERE}/usr/plugins/platforms"
+
+# Traduções do Qt
+export QT_TRANSLATIONS_PATH="${HERE}/usr/translations"
+
+# Recursos do KeePassXC (ícones, traduções, wordlists)
+export KEEPASSXC_DATA_PATH="${HERE}/usr/share/keepassxc"
+
+exec "${HERE}/usr/bin/cfdmnote" "$@"
