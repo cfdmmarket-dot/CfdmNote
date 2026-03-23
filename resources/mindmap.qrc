@@ -1,0 +1,7 @@
+<RCC>
+  <qresource prefix="/cfdmnote/mindmap">
+    <file alias="mindmap.html">mindmap/mindmap.html</file>
+    <file alias="mind-elixir.js">mindmap/mind-elixir.js</file>
+    <file alias="mind-elixir.css">mindmap/mind-elixir.css</file>
+  </qresource>
+</RCC>

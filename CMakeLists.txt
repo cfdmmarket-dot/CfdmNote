@@ -69,12 +69,13 @@ set(CFDMNOTE_SRCS
     src/notes/NoteManager.cpp
     src/db/MainDatabaseManager.cpp
     resources/manual.qrc
+    resources/mindmap.qrc
 )
 
 add_executable(cfdmnote ${CFDMNOTE_SRCS})
 
 # Qt5Sql (necessário para NoteManager / QSqlDatabase)
-find_package(Qt5 COMPONENTS Sql Network REQUIRED)
+find_package(Qt5 COMPONENTS Sql Network WebEngineWidgets REQUIRED)
 
 # Botan (necessário para VaultDialog / PasswordKey)
 find_package(PkgConfig REQUIRED)
@@ -98,6 +99,7 @@ target_link_libraries(cfdmnote PRIVATE
     keepassxc_gui       # inclui keepassxc_core transitivamente
     Qt5::Sql
     Qt5::Network
+    Qt5::WebEngineWidgets
     libcmark-gfm-extensions_static   # extensions primeiro (depende do core)
     libcmark-gfm_static               # core depois
     ${BOTAN_LIBRARIES}
