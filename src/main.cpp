@@ -37,6 +37,7 @@
 #include <QToolTip>
 #include <QHelpEvent>
 #include <QAbstractItemView>
+#include <QTreeView>
 
 #include "core/Metadata.h"
 #include "core/EntryAttributes.h"
@@ -68,7 +69,7 @@
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.8.1";
+static const QString APP_VERSION = "1.8.2";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -190,6 +191,45 @@ protected:
             }
         }
         return QObject::eventFilter(obj, event);
+    }
+};
+
+// ── Tooltip rico nas entradas (023) ─────────────────────────────────────────
+class EntryTooltipFilter : public QObject {
+    Q_OBJECT
+protected:
+    bool eventFilter(QObject* obj, QEvent* ev) override {
+        if (ev->type() != QEvent::ToolTip) return false;
+        auto* view = qobject_cast<QAbstractItemView*>(obj);
+        if (!view) return false;
+        auto* he   = static_cast<QHelpEvent*>(ev);
+        const QModelIndex idx = view->indexAt(he->pos());
+        if (!idx.isValid()) return false;
+
+        const auto* model = idx.model();
+        const int   row   = idx.row();
+        const int   cols  = qMin(model->columnCount(), 8);
+
+        QStringList lines;
+        for (int c = 0; c < cols; ++c) {
+            const QModelIndex ci  = model->index(row, c, idx.parent());
+            const QString     hdr = model->headerData(c, Qt::Horizontal).toString();
+            const QString     val = ci.data(Qt::DisplayRole).toString();
+            // Omite senha mascarada e colunas vazias
+            if (hdr.isEmpty() || val.isEmpty() || val.startsWith(QChar(0x25CF)))
+                continue;
+            lines << QString("<b>%1:</b> %2")
+                        .arg(hdr.toHtmlEscaped(),
+                             val.left(120).toHtmlEscaped());
+        }
+        if (lines.isEmpty()) return false;
+
+        QToolTip::showText(he->globalPos(),
+            "<div style='font-size:12px;line-height:1.7'>" +
+            lines.join("<br>") + "</div>",
+            view, view->visualRect(idx), 6000);
+        ev->accept();
+        return true;
     }
 };
 
@@ -361,6 +401,16 @@ static void connectDbWidget(DatabaseWidget* dbWidget)
     if (!dbWidget) return;
 
     QTimer::singleShot(400, dbWidget, [dbWidget]() {
+        // ── Instala tooltip rico em todas as QTreeView do DatabaseWidget ──────
+        for (auto* view : dbWidget->findChildren<QTreeView*>()) {
+            // Evita instalar duas vezes no mesmo widget
+            bool already = false;
+            for (auto* ef : view->children())
+                if (qobject_cast<EntryTooltipFilter*>(ef)) { already = true; break; }
+            if (!already)
+                view->installEventFilter(new EntryTooltipFilter());
+        }
+
         auto* noteEditor = setupNotesTab(dbWidget);
         if (!noteEditor) {
             noteEditor = dbWidget->findChild<NoteEditorWidget*>();
@@ -944,55 +994,6 @@ int main(int argc, char* argv[])
         tb->addWidget(btn);
     });
 
-    // ── 023: Tooltip rico ao passar o mouse sobre entradas ─────────────────────
-    // Instala event filter nas EntryView para mostrar info da entrada em hover.
-    QTimer::singleShot(1200, &mainWindow, [&mainWindow]() {
-        class EntryTooltipFilter : public QObject {
-        protected:
-            bool eventFilter(QObject* obj, QEvent* ev) override {
-                if (ev->type() != QEvent::ToolTip) return false;
-                auto* view = qobject_cast<QAbstractItemView*>(obj);
-                if (!view) return false;
-                auto* he = static_cast<QHelpEvent*>(ev);
-                const QModelIndex idx = view->indexAt(he->pos());
-                if (!idx.isValid()) return false;
-
-                // Coleta colunas visíveis pelo DisplayRole
-                const auto* model = idx.model();
-                const int row = idx.row();
-                const int cols = model->columnCount();
-
-                QStringList lines;
-                for (int c = 0; c < qMin(cols, 7); ++c) {
-                    const QModelIndex ci = model->index(row, c, idx.parent());
-                    // cabeçalho da coluna como label
-                    const QString hdr = model->headerData(c, Qt::Horizontal, Qt::DisplayRole).toString();
-                    const QString val = ci.data(Qt::DisplayRole).toString();
-                    if (!hdr.isEmpty() && !val.isEmpty() && val != "●●●●●●●●")
-                        lines << QString("<b>%1:</b> %2")
-                                    .arg(hdr.toHtmlEscaped(), val.toHtmlEscaped());
-                }
-                if (lines.isEmpty()) return false;
-
-                QToolTip::showText(he->globalPos(),
-                    "<div style='font-size:12px;line-height:1.6'>" +
-                    lines.join("<br>") + "</div>",
-                    view, view->visualRect(idx));
-                ev->accept();
-                return true;
-            }
-        };
-
-        // Instala em todos os QAbstractItemView dentro dos DatabaseWidgets
-        for (auto* view : mainWindow.findChildren<QAbstractItemView*>()) {
-            if (view->objectName().contains("entry", Qt::CaseInsensitive) ||
-                view->inherits("EntryView"))
-            {
-                view->installEventFilter(new EntryTooltipFilter());
-            }
-        }
-    });
-
     // ── Abre banco principal (sem senha) → substitui a tela de boas-vendas ──
     // O cofre criptografado só abre quando invocado pelo menu CfdmNote
     QTimer::singleShot(100, &mainWindow, [&mainWindow]() {
@@ -1009,3 +1010,5 @@ int main(int argc, char* argv[])
 
     return app.exec();
 }
+
+#include "main.moc"
