@@ -57,6 +57,7 @@ set(CFDMNOTE_SRCS
     src/gui/DatabaseInfoDialog.cpp
     src/gui/PowerSearchDialog.cpp
     src/gui/AudioCaptureDialog.cpp
+    src/gui/TranslateDialog.cpp
     src/gui/NoteEditorWidget.cpp
     src/reminders/ReminderManager.cpp
     src/notes/NoteManager.cpp
@@ -67,7 +68,7 @@ set(CFDMNOTE_SRCS
 add_executable(cfdmnote ${CFDMNOTE_SRCS})
 
 # Qt5Sql (necessário para NoteManager / QSqlDatabase)
-find_package(Qt5 COMPONENTS Sql REQUIRED)
+find_package(Qt5 COMPONENTS Sql Network REQUIRED)
 
 # Botan (necessário para VaultDialog / PasswordKey)
 find_package(PkgConfig REQUIRED)
@@ -90,6 +91,7 @@ target_include_directories(cfdmnote PRIVATE
 target_link_libraries(cfdmnote PRIVATE
     keepassxc_gui       # inclui keepassxc_core transitivamente
     Qt5::Sql
+    Qt5::Network
     libcmark-gfm-extensions_static   # extensions primeiro (depende do core)
     libcmark-gfm_static               # core depois
     ${BOTAN_LIBRARIES}

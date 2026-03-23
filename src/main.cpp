@@ -38,6 +38,10 @@
 #include <QHelpEvent>
 #include <QAbstractItemView>
 #include <QTreeView>
+#include <QRegularExpression>
+#include <QCursor>
+#include <QSet>
+#include <QMap>
 
 #include "core/Metadata.h"
 #include "core/EntryAttributes.h"
@@ -66,11 +70,13 @@
 #include "gui/DatabaseInfoDialog.h"
 #include "gui/PowerSearchDialog.h"
 #include "gui/AudioCaptureDialog.h"
+#include "gui/TranslateDialog.h"
+#include "notes/NoteManager.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.9.0";
+static const QString APP_VERSION = "1.9.1";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -781,6 +787,103 @@ int main(int argc, char* argv[])
             return;
         }
         ReminderDialog::editReminder(entry, dbWidget->database(), &mainWindow);
+    });
+
+    // Tradução de notas (026)
+    QAction* actTranslate = cfdmMenu->addAction(
+        QIcon::fromTheme("preferences-desktop-locale"),
+        QObject::tr("&Traduzir nota...")
+    );
+    actTranslate->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_T));
+    QObject::connect(actTranslate, &QAction::triggered, [&mainWindow]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        Entry* entry = nullptr;
+        QSharedPointer<Database> db;
+        if (dbTabWidget && dbTabWidget->currentDatabaseWidget()) {
+            entry = dbTabWidget->currentDatabaseWidget()->currentSelectedEntry();
+            db    = dbTabWidget->currentDatabaseWidget()->database();
+        }
+        TranslateDialog::translateEntry(entry, db, &mainWindow);
+    });
+
+    // Pesquisar contexto da nota na web (027)
+    QAction* actNoteSearch = cfdmMenu->addAction(
+        QIcon::fromTheme("edit-find"),
+        QObject::tr("Pesquisar contexto da &nota...")
+    );
+    QObject::connect(actNoteSearch, &QAction::triggered, [&mainWindow]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        if (!dbTabWidget || !dbTabWidget->currentDatabaseWidget()) return;
+        auto* dbWidget = dbTabWidget->currentDatabaseWidget();
+        Entry* entry = dbWidget->currentSelectedEntry();
+        if (!entry) {
+            QMessageBox::information(&mainWindow, QObject::tr("Pesquisar nota"),
+                QObject::tr("Selecione uma entrada primeiro."));
+            return;
+        }
+
+        // Extrai palavras-chave da nota (remove stopwords PT/EN, pega top 8)
+        const QString noteId = NoteManager::instance().getNoteIdForEntry(entry->uuidToHex());
+        QString text = noteId.isEmpty()
+            ? entry->notes()
+            : NoteManager::instance().getNoteContent(noteId);
+        if (text.isEmpty()) text = entry->title();
+
+        // Stopwords básicas PT+EN
+        static const QSet<QString> stopwords = {
+            "de","da","do","em","para","com","por","que","se","na","no",
+            "uma","um","as","os","ao","aos","das","dos","pelo","pela",
+            "the","and","or","in","on","at","to","for","of","a","an",
+            "is","it","this","that","are","was","were","be","been",
+            "have","has","had","with","from","by","as","but","not",
+        };
+
+        QMap<QString,int> freq;
+        const QStringList words = text.split(QRegularExpression("[\\s\\W]+"),
+                                             Qt::SkipEmptyParts);
+        for (const QString& w : words) {
+            const QString lw = w.toLower();
+            if (lw.length() < 3 || stopwords.contains(lw)) continue;
+            freq[lw]++;
+        }
+
+        // Ordena por frequência e pega os top 8
+        QList<QPair<int,QString>> ranked;
+        for (auto it = freq.begin(); it != freq.end(); ++it)
+            ranked.append({it.value(), it.key()});
+        std::sort(ranked.begin(), ranked.end(), std::greater<>());
+
+        QStringList keywords;
+        for (int i = 0; i < qMin(8, ranked.size()); ++i)
+            keywords << ranked[i].second;
+
+        if (keywords.isEmpty()) {
+            keywords << entry->title();
+        }
+
+        // Abre menu para escolher onde buscar
+        const QString query = keywords.join(" ");
+        const QString enc   = QString::fromUtf8(QUrl::toPercentEncoding(query));
+
+        QMenu searchCtxMenu(&mainWindow);
+        searchCtxMenu.setTitle(QObject::tr("Pesquisar: %1").arg(query.left(50)));
+        searchCtxMenu.addAction(QObject::tr("Google"), [enc]() {
+            QDesktopServices::openUrl(QUrl("https://www.google.com/search?q=" + enc));
+        });
+        searchCtxMenu.addAction(QObject::tr("Wikipedia"), [enc]() {
+            QDesktopServices::openUrl(QUrl("https://pt.wikipedia.org/wiki/Special:Search?search=" + enc));
+        });
+        searchCtxMenu.addAction(QObject::tr("ChatGPT"), [query]() {
+            const QString prompt = QString::fromUtf8(QUrl::toPercentEncoding(
+                "Me explique e dê referências sobre: " + query));
+            QDesktopServices::openUrl(QUrl("https://chat.openai.com/?q=" + prompt));
+        });
+        searchCtxMenu.addAction(QObject::tr("GitHub"), [enc]() {
+            QDesktopServices::openUrl(QUrl("https://github.com/search?q=" + enc));
+        });
+        searchCtxMenu.addSeparator();
+        searchCtxMenu.addAction(QObject::tr("Palavras-chave extraídas: %1").arg(query))->setEnabled(false);
+        searchCtxMenu.exec(QCursor::pos());
     });
 
     // Capturar Áudio / Transcrição (024)
