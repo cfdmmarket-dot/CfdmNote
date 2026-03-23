@@ -32,7 +32,8 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     : QDialog(parent), m_db(db)
 {
     setWindowTitle(tr("🧠 Mapa Mental — CfdmNote"));
-    setWindowFlags(windowFlags() | Qt::WindowMaximizeButtonHint);
+    setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::WindowCloseButtonHint
+                   | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
     const QRect scr = QApplication::primaryScreen()->availableGeometry();
     resize(qMin(1300, scr.width() - 40), qMin(840, scr.height() - 40));
 
