@@ -762,16 +762,10 @@ int main(int argc, char* argv[])
             }
         });
 
-        // Intercepta ação de import — mostra overlay antes do freeze
-        auto* actionImport = mainWindow.findChild<QAction*>("actionImport");
-        if (actionImport) {
-            QObject::connect(actionImport, &QAction::triggered, busyOverlay, [busyOverlay, &mainWindow]() {
-                busyOverlay->setGeometry(mainWindow.rect());
-                busyOverlay->raise();
-                busyOverlay->setVisible(true);
-                QApplication::processEvents();
-            });
-        }
+        // Failsafe: garante que o overlay some após o startup (caso tenha ficado visível)
+        QTimer::singleShot(3000, busyOverlay, [busyOverlay]() {
+            busyOverlay->setVisible(false);
+        });
     });
 
     // ── Menu CfdmNote ─────────────────────────────────────────────────────────
