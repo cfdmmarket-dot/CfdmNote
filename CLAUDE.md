@@ -28,7 +28,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v2.1.0
+## Versão atual: v2.2.0
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -71,6 +71,14 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v2.1.0 — Aba "⏰ Lembrete": painel compacto com status do lembrete (ativo/disparado/desativado), tempo restante, recorrência, botão editar/remover ✓
 - [x] v2.1.0 — Versão exibida na tela de login (AppLockDialog): "v2.1.0" em azul abaixo do título ✓
 - [x] v2.1.0 — CfdmVersion.h: fonte única de verdade para a versão (main.cpp + AppLockDialog sincronizados) ✓
+- [x] v2.2.0 — MindMapDialog: mapa mental interativo com expand/collapse por clique, export SVG, painel de detalhes ✓
+- [x] v2.2.0 — RoadmapDialog: Kanban 4 colunas (Backlog/InProgress/Done/Waiting), status por entrada, arrastar via menu ✓
+- [x] v2.2.0 — WhiteboardDialog: canvas livre com cards de entradas + sticky notes coloridos, layout persistido ✓
+- [x] v2.2.0 — ThemeManager SteelBlue: novo tema + NavyBlue toolbar clarificado (ícones visíveis) ✓
+- [x] v2.2.0 — Criar Grupo com seletor de pai (Opção B): diálogo com QComboBox indentado por profundidade ✓
+- [x] v2.2.0 — DEVLOG.md + seções 23/24 no manual + botão "Diário de Dev" no ManualDialog ✓
+- [x] v2.2.0 — Fix: banco principal não abre mais atrás do AppLockDialog (limpeza de config na inicialização) ✓
+- [x] v2.2.0 — Git inicializado com histórico completo desde v1.0.0 ✓
 - [x] v1.5.0 — ReminderManager: verifica a cada 60s, reagenda recorrentes, adiar 1h/8h ✓
 - [x] v1.5.0 — Google Calendar: botão abre browser com evento pré-preenchido (sem OAuth) ✓
 
