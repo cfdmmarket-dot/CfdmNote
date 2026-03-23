@@ -13,6 +13,7 @@
 #include "crypto/kdf/Argon2Kdf.h"
 #include "format/Kdbx4Writer.h"
 #include "keys/CompositeKey.h"
+#include "keys/PasswordKey.h"
 #include "gui/MainWindow.h"
 #include "gui/DatabaseWidget.h"
 #include "gui/DatabaseTabWidget.h"
@@ -66,8 +67,11 @@ bool MainDatabaseManager::createIfNeeded()
     recycleBin->setParent(root);
     db->metadata()->setRecycleBin(recycleBin);
 
-    // Chave vazia — nenhuma senha mestra
+    // PasswordKey com string vazia — faz isInitialized() retornar true
+    // (CompositeKey totalmente vazio faz isInitialized() retornar false,
+    //  impedindo o DatabaseWidget de ir para MainView sem mostrar unlock dialog)
     auto key = QSharedPointer<CompositeKey>::create();
+    key->addKey(QSharedPointer<PasswordKey>::create(QString("")));
 
     // KDF mínimo (não precisa de segurança pesada sem senha)
     auto kdf = QSharedPointer<Argon2Kdf>::create(Argon2Kdf::Type::Argon2d);
@@ -101,7 +105,8 @@ bool MainDatabaseManager::createIfNeeded()
 QSharedPointer<Database> MainDatabaseManager::openDatabase(const QString& path, QString* error)
 {
     auto db = QSharedPointer<Database>::create(path);
-    auto key = QSharedPointer<CompositeKey>::create();  // chave vazia
+    auto key = QSharedPointer<CompositeKey>::create();
+    key->addKey(QSharedPointer<PasswordKey>::create(QString("")));
 
     if (!db->open(key, error)) {
         return {};

@@ -33,7 +33,7 @@
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.0.9";
+static const QString APP_VERSION = "1.1.0";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -96,8 +96,18 @@ protected:
             auto* w = qobject_cast<QWidget*>(obj);
             if (w) {
                 QString title = w->windowTitle();
+                bool changed = false;
                 if (title.contains("KeePassXC")) {
                     title.replace("KeePassXC", APP_NAME);
+                    changed = true;
+                }
+                if (!title.contains(APP_VERSION)) {
+                    title = title.isEmpty()
+                        ? QString("%1 v%2").arg(APP_NAME, APP_VERSION)
+                        : QString("%1 — v%2").arg(title, APP_VERSION);
+                    changed = true;
+                }
+                if (changed) {
                     w->setWindowTitle(title);
                     return true;
                 }
@@ -188,10 +198,13 @@ int main(int argc, char* argv[])
 
     // Força título, patches visuais e conexão de entradas após inicializar
     QTimer::singleShot(0, &mainWindow, [&mainWindow, &iconPath, noteEditor]() {
-        // Título
+        // Título com versão
         QString t = mainWindow.windowTitle();
         t.replace("KeePassXC", APP_NAME);
-        mainWindow.setWindowTitle(t.isEmpty() ? APP_NAME : t);
+        if (!t.contains(APP_VERSION))
+            t = t.isEmpty() ? QString("%1 v%2").arg(APP_NAME, APP_VERSION)
+                            : QString("%1 — v%2").arg(t, APP_VERSION);
+        mainWindow.setWindowTitle(t);
 
         // WelcomeWidget: texto de boas-vindas + ícone
         patchWelcomeWidget(&mainWindow, iconPath);
