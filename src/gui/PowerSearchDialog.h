@@ -63,8 +63,19 @@ private:
     void        setupLocalTab(QTabWidget* tabs);
     void        setupWebTab(QTabWidget* tabs);
     void        setupLinkCheckTab(QTabWidget* tabs);
+    void        setupTrendingTab(QTabWidget* tabs);
     QStringList extensionsForCurrentType() const;
     QString     buildDorkQuery() const;
+
+    // Abre URL no navegador selecionado (privado ou padrão)
+    void        openUrl(const QString& url);
+
+    // Detecta navegadores privados instalados no sistema
+    struct BrowserInfo { QString name; QString exe; QStringList args; };
+    static QList<BrowserInfo> detectBrowsers();
+
+    // ── Seletor de navegador (compartilhado entre abas) ────────────────────
+    QComboBox*   m_browserCombo = nullptr;
 
     // ── Aba 1: Arquivos Locais ─────────────────────────────────────────────
     QLineEdit*   m_nameFilter   = nullptr;

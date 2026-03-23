@@ -22,6 +22,10 @@
 #include <QCursor>
 #include <QDir>
 #include <QIcon>
+#include <QProcess>
+#include <QScrollArea>
+#include <QSettings>
+#include <QStandardPaths>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SearchWorker
@@ -64,6 +68,88 @@ void SearchWorker::start()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Browser detection + openUrl
+// ─────────────────────────────────────────────────────────────────────────────
+
+/*static*/
+QList<PowerSearchDialog::BrowserInfo> PowerSearchDialog::detectBrowsers()
+{
+    struct Candidate {
+        QString name;
+        QStringList execs;   // tenta em ordem; usa o primeiro encontrado
+        QStringList args;    // modo privado
+    };
+
+    const QList<Candidate> known = {
+        {"Brave",              {"brave-browser","brave"},
+                               {"--incognito"}},
+        {"LibreWolf",          {"librewolf"},
+                               {"--private-window"}},
+        {"Firefox",            {"firefox","firefox-esr"},
+                               {"--private-window"}},
+        {"Waterfox",           {"waterfox","waterfox-current"},
+                               {"--private-window"}},
+        {"Mullvad Browser",    {"mullvad-browser"},
+                               {"--private-window"}},
+        {"Vivaldi",            {"vivaldi","vivaldi-stable"},
+                               {"--incognito"}},
+        {"Ungoogled Chromium", {"ungoogled-chromium","chromium-browser","chromium"},
+                               {"--incognito"}},
+        {"Tor Browser",        {"tor-browser","torbrowser-launcher"},
+                               {}},
+        {"Google Chrome",      {"google-chrome","google-chrome-stable"},
+                               {"--incognito"}},
+        {"Microsoft Edge",     {"microsoft-edge","microsoft-edge-stable"},
+                               {"--inprivate"}},
+        {"Opera",              {"opera"},
+                               {"--private"}},
+    };
+
+    QList<BrowserInfo> found;
+    // "Padrão do sistema" sempre aparece primeiro
+    found.append({tr("Padrão do sistema"), {}, {}});
+
+    for (const auto& c : known) {
+        for (const QString& exec : c.execs) {
+            QProcess p;
+            p.start("which", {exec});
+            if (p.waitForFinished(500) && p.exitCode() == 0) {
+                found.append({c.name, exec, c.args});
+                break;
+            }
+        }
+    }
+    return found;
+}
+
+void PowerSearchDialog::openUrl(const QString& urlStr)
+{
+    if (!m_browserCombo) {
+        QDesktopServices::openUrl(QUrl(urlStr));
+        return;
+    }
+
+    const QVariant data = m_browserCombo->currentData();
+    if (!data.isValid() || data.toString().isEmpty()) {
+        QDesktopServices::openUrl(QUrl(urlStr));
+        return;
+    }
+
+    // data = "exe|arg1|arg2"
+    const QStringList parts = data.toString().split('|');
+    const QString     exe   = parts.value(0);
+    QStringList       args  = parts.mid(1);
+    if (!args.isEmpty() && args.last().isEmpty())
+        args.removeLast();
+    args << urlStr;
+
+    if (!QProcess::startDetached(exe, args)) {
+        // Fallback para o padrão se o browser falhar
+        QDesktopServices::openUrl(QUrl(urlStr));
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PowerSearchDialog — construtor / destrutor
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -71,16 +157,73 @@ PowerSearchDialog::PowerSearchDialog(QWidget* parent)
     : QDialog(parent)
 {
     setWindowTitle(tr("Pesquisa Poderosa"));
-    setMinimumSize(820, 580);
+    setMinimumSize(860, 600);
 
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(10, 10, 10, 10);
     layout->setSpacing(6);
 
+    // ── Seletor de navegador (barra global no topo) ───────────────────────────
+    auto* browserRow = new QHBoxLayout();
+    browserRow->addWidget(new QLabel(tr("🌐 Abrir links com:")));
+    m_browserCombo = new QComboBox();
+    m_browserCombo->setToolTip(
+        tr("Escolha o navegador para abrir todas as buscas e links.\n"
+           "Navegadores com modo privado já são iniciados nesse modo."));
+    m_browserCombo->setMinimumWidth(200);
+
+    const auto browsers = detectBrowsers();
+    for (const auto& b : browsers) {
+        // data = "exe|arg1|arg2" ou vazio para padrão
+        QString data;
+        if (!b.exe.isEmpty()) {
+            data = b.exe;
+            for (const QString& a : b.args)
+                data += "|" + a;
+        }
+        m_browserCombo->addItem(b.name, data);
+    }
+
+    // Restaura última seleção
+    QSettings cfg;
+    const QString saved = cfg.value("powersearch/browser").toString();
+    if (!saved.isEmpty()) {
+        for (int i = 0; i < m_browserCombo->count(); ++i) {
+            if (m_browserCombo->itemData(i).toString() == saved) {
+                m_browserCombo->setCurrentIndex(i);
+                break;
+            }
+        }
+    }
+    connect(m_browserCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int) {
+                QSettings cfg2;
+                cfg2.setValue("powersearch/browser",
+                              m_browserCombo->currentData().toString());
+            });
+
+    browserRow->addWidget(m_browserCombo);
+    browserRow->addStretch();
+
+    // Badge: quantos browsers privados foram encontrados
+    const int privCount = browsers.size() - 1;  // -1 pelo "Padrão"
+    if (privCount > 0) {
+        auto* badge = new QLabel(
+            tr("✅ %1 navegador(es) privado(s) detectado(s)").arg(privCount));
+        badge->setStyleSheet("font-size: 11px; color: #276749;");
+        browserRow->addWidget(badge);
+    } else {
+        auto* badge = new QLabel(tr("⚠ Nenhum navegador privado detectado"));
+        badge->setStyleSheet("font-size: 11px; color: #c05621;");
+        browserRow->addWidget(badge);
+    }
+    layout->addLayout(browserRow);
+
     auto* tabs = new QTabWidget();
     setupLocalTab(tabs);
     setupWebTab(tabs);
     setupLinkCheckTab(tabs);
+    setupTrendingTab(tabs);
     layout->addWidget(tabs);
 
     auto* btnClose = new QPushButton(tr("Fechar"));
@@ -352,8 +495,7 @@ void PowerSearchDialog::setupWebTab(QTabWidget* tabs)
             return;
         }
         const QString enc = QString::fromUtf8(QUrl::toPercentEncoding(q));
-        QDesktopServices::openUrl(
-            QUrl("https://www.google.com/search?q=" + enc));
+        openUrl("https://www.google.com/search?q=" + enc);
     });
 }
 
@@ -672,7 +814,7 @@ void PowerSearchDialog::onWebSearch(const QString& engine)
     else if (engine == "duckduckgo") urlStr = "https://duckduckgo.com/?q=" + enc;
 
     if (!urlStr.isEmpty())
-        QDesktopServices::openUrl(QUrl(urlStr));
+        openUrl(urlStr);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -691,13 +833,12 @@ void PowerSearchDialog::onCheckUrl(const QString& service)
     if (service == "virustotal") {
         QApplication::clipboard()->setText(url);
         m_urlStatus->setText(
-            tr("✅ URL copiada para a área de transferência. Cole no campo de busca do VirusTotal."));
-        QDesktopServices::openUrl(QUrl("https://www.virustotal.com/gui/home/url"));
+            tr("✅ URL copiada. Cole no campo de busca do VirusTotal."));
+        openUrl("https://www.virustotal.com/gui/home/url");
     }
     else if (service == "googlesafe") {
         const QString enc = QString::fromUtf8(QUrl::toPercentEncoding(url));
-        QDesktopServices::openUrl(QUrl(
-            "https://transparencyreport.google.com/safe-browsing/search?url=" + enc));
+        openUrl("https://transparencyreport.google.com/safe-browsing/search?url=" + enc);
         m_urlStatus->setText(tr("Abrindo Google Safe Browsing..."));
     }
     else if (service == "urlvoid") {
@@ -708,7 +849,120 @@ void PowerSearchDialog::onCheckUrl(const QString& service)
                 tr("Não foi possível extrair o domínio da URL."));
             return;
         }
-        QDesktopServices::openUrl(QUrl("https://www.urlvoid.com/scan/" + domain + "/"));
+        openUrl("https://www.urlvoid.com/scan/" + domain + "/");
         m_urlStatus->setText(tr("Verificando domínio: %1").arg(domain));
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Aba 4: Em Alta / Trending
+// ─────────────────────────────────────────────────────────────────────────────
+
+void PowerSearchDialog::setupTrendingTab(QTabWidget* tabs)
+{
+    // Scroll area para caber tudo sem redimensionar o diálogo
+    auto* scroll = new QScrollArea();
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+
+    auto* page   = new QWidget();
+    auto* layout = new QVBoxLayout(page);
+    layout->setSpacing(10);
+    layout->setContentsMargins(6, 6, 6, 6);
+
+    // ── Helper: cria grupo com grade de botões ────────────────────────────────
+    auto makeGroup = [&](const QString& title,
+                          const QList<QPair<QString,QString>>& items,
+                          const QString& color) -> QGroupBox*
+    {
+        auto* grp = new QGroupBox(title);
+        grp->setStyleSheet(
+            QString("QGroupBox { font-weight: bold; color: %1;"
+                    " border: 1px solid %1; border-radius: 6px;"
+                    " margin-top: 8px; padding-top: 6px; }"
+                    "QGroupBox::title { subcontrol-origin: margin;"
+                    " left: 8px; padding: 0 4px; }").arg(color));
+        auto* flow = new QGridLayout(grp);
+        flow->setSpacing(6);
+
+        int col = 0, row = 0;
+        for (const auto& [label, url] : items) {
+            auto* btn = new QPushButton(label);
+            btn->setFixedHeight(30);
+            btn->setStyleSheet(
+                QString("QPushButton { border: 1px solid %1; border-radius: 5px;"
+                        " color: %1; padding: 0 10px; }"
+                        "QPushButton:hover { background: %1; color: white; }").arg(color));
+            const QString u = url;
+            connect(btn, &QPushButton::clicked, this, [this, u]() { openUrl(u); });
+            flow->addWidget(btn, row, col);
+            ++col;
+            if (col >= 3) { col = 0; ++row; }
+        }
+        return grp;
+    };
+
+    // ── Vídeo & Conteúdo ──────────────────────────────────────────────────────
+    layout->addWidget(makeGroup(tr("▶  Vídeo & Conteúdo"), {
+        {tr("YouTube Trending BR"),   "https://www.youtube.com/feed/trending?gl=BR"},
+        {tr("YouTube Música BR"),     "https://www.youtube.com/feed/trending?gl=BR&bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D"},
+        {tr("YouTube Gaming"),        "https://www.youtube.com/feed/trending?gl=BR&bp=4gIcGhpnYW1pbmdfY29ycHVzX21vc3RfcG9wdWxhcg%3D%3D"},
+        {tr("TikTok Trending"),       "https://www.tiktok.com/trending"},
+        {tr("Kwai Trending"),         "https://www.kwai.com/"},
+        {tr("Vimeo Staff Picks"),     "https://vimeo.com/channels/staffpicks"},
+    }, "#e53e3e"));
+
+    // ── Redes Sociais ─────────────────────────────────────────────────────────
+    layout->addWidget(makeGroup(tr("👥  Redes Sociais"), {
+        {tr("X / Twitter Trending"),  "https://twitter.com/explore/tabs/trending"},
+        {tr("Instagram Explore"),     "https://www.instagram.com/explore/"},
+        {tr("Facebook Trending"),     "https://www.facebook.com/"},
+        {tr("Pinterest Trending"),    "https://www.pinterest.com/"},
+        {tr("LinkedIn Notícias"),     "https://www.linkedin.com/news/"},
+        {tr("Mastodon Federated"),    "https://mastodon.social/explore"},
+    }, "#3182ce"));
+
+    // ── Tech & Dev ────────────────────────────────────────────────────────────
+    layout->addWidget(makeGroup(tr("💻  Tech & Dev"), {
+        {tr("GitHub Trending"),       "https://github.com/trending"},
+        {tr("Hacker News"),           "https://news.ycombinator.com/"},
+        {tr("Product Hunt"),          "https://www.producthunt.com/"},
+        {tr("DEV.to"),                "https://dev.to/"},
+        {tr("Lobste.rs"),             "https://lobste.rs/"},
+        {tr("Reddit r/programming"),  "https://www.reddit.com/r/programming/hot/"},
+    }, "#38a169"));
+
+    // ── Notícias & Tendências ─────────────────────────────────────────────────
+    layout->addWidget(makeGroup(tr("📰  Notícias & Tendências"), {
+        {tr("Google Trends BR"),      "https://trends.google.com.br/trending?geo=BR"},
+        {tr("Google News BR"),        "https://news.google.com/topstories?hl=pt-BR&gl=BR&ceid=BR:pt-419"},
+        {tr("Reddit r/all Hot"),      "https://www.reddit.com/r/all/hot/"},
+        {tr("Reddit r/worldnews"),    "https://www.reddit.com/r/worldnews/hot/"},
+        {tr("Feedly Trending"),       "https://feedly.com/i/discover"},
+        {tr("Flipboard Trending"),    "https://flipboard.com/"},
+    }, "#d69e2e"));
+
+    // ── Para Criadores de Conteúdo ────────────────────────────────────────────
+    layout->addWidget(makeGroup(tr("🎯  Para Criadores de Conteúdo"), {
+        {tr("AnswerThePublic"),        "https://answerthepublic.com/"},
+        {tr("Google Trends Comparar"),"https://trends.google.com.br/trends/explore?geo=BR"},
+        {tr("BuzzSumo (free)"),        "https://buzzsumo.com/"},
+        {tr("Exploding Topics"),       "https://explodingtopics.com/"},
+        {tr("SparkToro Trending"),     "https://sparktoro.com/trending"},
+        {tr("Semrush Keyword Free"),   "https://www.semrush.com/analytics/keywordoverview/"},
+    }, "#805ad5"));
+
+    // ── Compras & Mercado ─────────────────────────────────────────────────────
+    layout->addWidget(makeGroup(tr("🛒  Compras & Mercado"), {
+        {tr("Amazon Best Sellers BR"), "https://www.amazon.com.br/gp/bestsellers/"},
+        {tr("Mercado Livre Mais Vend."),"https://www.mercadolivre.com.br/mais-vendidos/"},
+        {tr("Hotmart Top Produtos"),   "https://hotmart.com/pt-BR/marketplace"},
+        {tr("Monetizze Top"),          "https://monetizze.com.br/marketplace/"},
+        {tr("Eduzz Marketplace"),      "https://eduzz.com/marketplace"},
+        {tr("Shopee Trending BR"),     "https://shopee.com.br/"},
+    }, "#dd6b20"));
+
+    layout->addStretch();
+    scroll->setWidget(page);
+    tabs->addTab(scroll, QIcon::fromTheme("go-up"), tr("📈 Em Alta"));
 }
