@@ -62,7 +62,7 @@
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.7.1";
+static const QString APP_VERSION = "1.7.2";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -270,6 +270,25 @@ static NoteEditorWidget* setupNotesTab(DatabaseWidget* dbWidget)
     // ── Garante que o painel de abas nunca some ────────────────────────────
     tabWidget->setMinimumHeight(160);
     splitter->setCollapsible(idx, false);   // impede colapso total
+
+    // ── Melhora visibilidade do handle do splitter ──────────────────────────
+    splitter->setHandleWidth(8);
+    splitter->setStyleSheet(
+        "QSplitter::handle:vertical {"
+        "  background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+        "    stop:0 #bee3f8, stop:0.4 #ebf8ff, stop:0.6 #ebf8ff, stop:1 #bee3f8);"
+        "  border-top: 1px solid #90cdf4;"
+        "  border-bottom: 1px solid #90cdf4;"
+        "  margin: 0 4px;"
+        "}"
+        "QSplitter::handle:vertical:hover {"
+        "  background: #90cdf4;"
+        "  cursor: ns-resize;"
+        "}"
+        "QSplitter::handle:vertical:pressed {"
+        "  background: #3182ce;"
+        "}"
+    );
 
     // Define tamanho inicial: 55% lista de entradas / 45% painel de abas
     QTimer::singleShot(0, splitter, [splitter, idx]() {
