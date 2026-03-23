@@ -51,11 +51,28 @@ function colorFor(idx) {
 function initMindMap(jsonStr) {
   try {
     var data = JSON.parse(jsonStr);
-    if (mind) { mind.refresh(data); return; }
 
-    mind = new MindElixir({
+    // O IIFE exporta o construtor em .default — MindElixir em si é o módulo
+    var ME = (typeof MindElixir === 'function') ? MindElixir
+           : (MindElixir && MindElixir.default) ? MindElixir.default
+           : null;
+
+    if (!ME) {
+      document.body.innerHTML =
+        '<div style="color:orange;padding:20px;font-family:sans-serif;">'
+        + 'Erro: MindElixir não carregou. Verifique o arquivo JS.</div>';
+      return;
+    }
+
+    // Se já existe, destroi e recria
+    if (mind) {
+      document.getElementById('map').innerHTML = '';
+      mind = null;
+    }
+
+    mind = new ME({
       el: '#map',
-      direction: MindElixir.LEFT,  // raiz à esquerda, ramos para direita
+      direction: ME.SIDE !== undefined ? ME.SIDE : 2,
       data: data,
       draggable: true,
       contextMenu: false,
@@ -90,11 +107,7 @@ function initMindMap(jsonStr) {
 
 // Chamada pelo Qt para atualizar o mapa sem recriar
 function updateMindMap(jsonStr) {
-  try {
-    var data = JSON.parse(jsonStr);
-    if (mind) mind.refresh(data);
-    else initMindMap(jsonStr);
-  } catch(e) { console.error(e); }
+  initMindMap(jsonStr);
 }
 </script>
 </body>

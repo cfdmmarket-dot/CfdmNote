@@ -21,6 +21,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QWebEnginePage>
+#include <QWebEngineSettings>
+#include <QFile>
 
 // ─── MindMapDialog ────────────────────────────────────────────────────────────
 
@@ -89,7 +91,24 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
         injectMap();
     });
 
-    m_webView->load(QUrl("qrc:/cfdmnote/mindmap/mindmap.html"));
+    // Carrega o HTML com JS/CSS embutidos para evitar restrições de qrc:// no WebEngine
+    {
+        QFile jsFile(":/cfdmnote/mindmap/mind-elixir.js");
+        QFile cssFile(":/cfdmnote/mindmap/mind-elixir.css");
+        QFile htmlFile(":/cfdmnote/mindmap/mindmap.html");
+        jsFile.open(QIODevice::ReadOnly);
+        cssFile.open(QIODevice::ReadOnly);
+        htmlFile.open(QIODevice::ReadOnly);
+        const QString js  = QString::fromUtf8(jsFile.readAll());
+        const QString css = QString::fromUtf8(cssFile.readAll());
+        QString html = QString::fromUtf8(htmlFile.readAll());
+        // Substitui as referências externas por conteúdo inline
+        html.replace("<link rel=\"stylesheet\" href=\"qrc:/cfdmnote/mindmap/mind-elixir.css\">",
+                     "<style>" + css + "</style>");
+        html.replace("<script src=\"qrc:/cfdmnote/mindmap/mind-elixir.js\"></script>",
+                     "<script>" + js + "</script>");
+        m_webView->setHtml(html, QUrl("qrc:/"));
+    }
     splitter->addWidget(m_webView);
 
     // ── Painel lateral de detalhes ────────────────────────────────────────────

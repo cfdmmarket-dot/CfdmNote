@@ -16,6 +16,7 @@
 #include <QDir>
 #include <QSettings>
 #include <QApplication>
+#include <QScreen>
 #include <QTabWidget>
 #include <QBuffer>
 #include <QMovie>
@@ -660,7 +661,18 @@ static void connectEntryToNotes(MainWindow* mw)
 
 int main(int argc, char* argv[])
 {
+    // Qt5WebEngine: desabilita processo GPU para evitar eventos de foco no startup
+    // (o processo GPU ao conectar de volta dispara ApplicationActivate que abre bancos)
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", "--disable-gpu --disable-software-rasterizer");
+    // Necessário para Qt5WebEngine — DEVE vir antes de QApplication
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+
     Application app(argc, argv);
+
+    // Se já existe uma instância rodando, apenas traz ela para frente e sai
+    if (app.isAlreadyRunning()) {
+        return 0;
+    }
 
     // Corrige botões sem texto em QMessageBox (tema do sistema)
     app.installEventFilter(new MessageBoxFixer(&app));
@@ -671,19 +683,25 @@ int main(int argc, char* argv[])
     app.setApplicationDisplayName(APP_NAME);
     app.setApplicationVersion(APP_VERSION);
 
-    // Bloqueia TODOS os mecanismos de auto-open do KeePassXC antes de qualquer
-    // evento ou janela.
+    // ── Tela de login do CfdmNote (antes de qualquer janela) ─────────────────
+    // Processa eventos pendentes do Qt5WebEngine antes de mostrar o dialog.
+    // IMPORTANTE: a limpeza do config vem DEPOIS do processEvents() para evitar
+    // que o inotify do QSettings releia o disco e sobrescreva nossos valores.
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+
+    // Bloqueia TODOS os mecanismos de auto-open do KeePassXC.
     config()->set(Config::OpenPreviousDatabasesOnStartup, false);
     config()->remove(Config::LastOpenedDatabases);
     config()->remove(Config::LastActiveDatabase);
 
-    // ── Tela de login do CfdmNote (antes de qualquer janela) ─────────────────
     {
         AppLockDialog lockDlg;
         lockDlg.setWindowFlag(Qt::WindowStaysOnTopHint, true);
+        lockDlg.show();
+        lockDlg.raise();
+        lockDlg.activateWindow();
         if (lockDlg.exec() != QDialog::Accepted)
-            return 0;  // usuário fechou o diálogo — encerra o app
-        lockDlg.setWindowFlag(Qt::WindowStaysOnTopHint, false);
+            return 0;
     }
 
     // ── Ícone do CfdmNote (substitui o ícone do KeePassXC em toda a app) ──────

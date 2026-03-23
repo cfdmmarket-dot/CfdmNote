@@ -21,4 +21,12 @@
   - Só para você (uso pessoal)?                                                                                                                                                               
   - Ou pretende distribuir para outros?                                                                                                                                                       
                                                                                                                                                                                               
-  Com isso claro, ajusto o CMakeLists, a arquitetura e o que herdar (ou não) do KeePassXC.   
+  Com isso claro, ajusto o CMakeLists, a arquitetura e o que herdar (ou não) do KeePassXC.   ┌────────────┬──────────────────────────────────────────┐                                                                                                                                   
+  │ Plataforma │             Nome do arquivo              │
+  ├────────────┼──────────────────────────────────────────┤                                                                                                                                   
+  │ Linux      │ CfdmNote-2.2.0-**linux**-x86_64.AppImage │ 
+  ├────────────┼──────────────────────────────────────────┤
+  │ Windows    │ CfdmNote-2.2.0-**windows**-x86_64.exe    │                                                                                                                                   
+  ├────────────┼──────────────────────────────────────────┤
+  │ macOS      │ CfdmNote-2.2.0-**macos**-x86_64.dmg  
+  
