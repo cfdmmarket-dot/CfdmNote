@@ -59,9 +59,8 @@ public:
 
 private:
     void render();
-    void renderGroup(Group* g, QPointF pos, double dirAngle,
-                     double fanAngle, double radius, int depth,
-                     const QColor& color);
+    double subtreeH(Group* g) const;
+    void placeGroup(Group* g, double cx, double cy, int depth, const QColor& color);
     void addCurve(QPointF from, QPointF to, const QColor& color, int w);
     void fitAll();
     void updateDetail(Entry* e);

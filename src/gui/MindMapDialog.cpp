@@ -22,21 +22,29 @@
 #include <QSvgGenerator>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <QtMath>
+
+// ── Constantes de layout (compartilhadas entre MindNode e MindMapDialog) ──────
+static const double MM_ROOT_R  = 42.0;   // raio do nó raiz
+static const double MM_NODE_W  = 160.0;  // largura dos nós de grupo/entrada
+static const double MM_NODE_HG = 34.0;   // altura do nó de grupo
+static const double MM_NODE_HE = 26.0;   // altura do nó de entrada
+static const double MM_H_GAP   = 52.0;   // espaço horizontal entre bordas de nós
+static const double MM_V_GAP   = 11.0;   // espaço vertical entre irmãos
 
 static const QList<QColor> COLORS = {
     {"#3182ce"}, {"#38a169"}, {"#dd6b20"}, {"#805ad5"},
     {"#e53e3e"}, {"#00b5d8"}, {"#d69e2e"}, {"#319795"},
-    {"#667eea"}, {"#ed64a6"}, {"#f6ad55"}, {"#68d391"},
+    {"#667eea"}, {"#ed64a6"},
 };
 
-// ── View com zoom ─────────────────────────────────────────────────────────────
+// ── View com zoom por scroll ───────────────────────────────────────────────────
 class MindView : public QGraphicsView {
 public:
     using QGraphicsView::QGraphicsView;
 protected:
     void wheelEvent(QWheelEvent* ev) override {
-        scale(ev->angleDelta().y() > 0 ? 1.15 : 0.87, ev->angleDelta().y() > 0 ? 1.15 : 0.87);
+        const double f = ev->angleDelta().y() > 0 ? 1.15 : 0.87;
+        scale(f, f);
         ev->accept();
     }
 };
@@ -59,23 +67,21 @@ MindNode::MindNode(Kind kind, const QString& label, const QColor& color,
                    .arg(label.toHtmlEscaped())
                    .arg(expanded ? "recolher" : "expandir"));
     else if (kind == Kind::Entry)
-        setToolTip(QString("<b>%1</b><br>%2")
+        setToolTip(QString("<b>%1</b>%2")
                    .arg(label.toHtmlEscaped())
-                   .arg(entry ? entry->url().toHtmlEscaped() : ""));
+                   .arg(entry && !entry->url().isEmpty()
+                        ? "<br>" + entry->url().toHtmlEscaped() : ""));
 }
 
 QRectF MindNode::boundingRect() const
 {
     switch (m_kind) {
-        case Kind::Root:  return {-46,-46, 92, 92};
-        case Kind::Group: {
-            const int w = qMax(90, qMin(180, m_label.length() * 8 + 40));
-            return {-(double)w/2, -18, (double)w, 36};
-        }
-        case Kind::Entry: {
-            const int w = qMax(70, qMin(140, m_label.length() * 7 + 24));
-            return {-(double)w/2, -13, (double)w, 26};
-        }
+        case Kind::Root:
+            return { -MM_ROOT_R, -MM_ROOT_R, MM_ROOT_R*2, MM_ROOT_R*2 };
+        case Kind::Group:
+            return { -MM_NODE_W/2.0, -MM_NODE_HG/2.0, MM_NODE_W, MM_NODE_HG };
+        case Kind::Entry:
+            return { -MM_NODE_W/2.0, -MM_NODE_HE/2.0, MM_NODE_W, MM_NODE_HE };
     }
     return {};
 }
@@ -83,53 +89,64 @@ QRectF MindNode::boundingRect() const
 void MindNode::paint(QPainter* p, const QStyleOptionGraphicsItem*, QWidget*)
 {
     p->setRenderHint(QPainter::Antialiasing);
-    const QColor c = m_hovered ? m_color.lighter(130) : m_color;
+    const QColor c = m_hovered ? m_color.lighter(125) : m_color;
 
     if (m_kind == Kind::Root) {
-        QRadialGradient g(0,0,46);
-        g.setColorAt(0, c.lighter(130));
+        // Círculo com gradiente radial
+        QRadialGradient g(0, 0, MM_ROOT_R);
+        g.setColorAt(0, c.lighter(145));
         g.setColorAt(1, c);
         p->setBrush(g);
-        p->setPen(QPen(Qt::white, 3));
-        p->drawEllipse(QRectF(-46,-46,92,92));
+        p->setPen(QPen(Qt::white, 2.5));
+        p->drawEllipse(boundingRect());
+
         p->setPen(Qt::white);
-        QFont f; f.setPointSize(11); f.setBold(true); p->setFont(f);
-        p->drawText(QRectF(-42,-42,84,84), Qt::AlignCenter,
-                    m_label.left(12) + (m_label.length()>12?"…":""));
+        QFont f; f.setPointSize(10); f.setBold(true); p->setFont(f);
+        const QRectF tr = boundingRect().adjusted(6, 6, -6, -6);
+        p->drawText(tr, Qt::AlignCenter | Qt::TextWordWrap,
+                    m_label.left(16) + (m_label.length() > 16 ? "…" : ""));
 
     } else if (m_kind == Kind::Group) {
         const QRectF r = boundingRect();
-        QLinearGradient g(r.topLeft(), r.bottomRight());
-        g.setColorAt(0, c.lighter(115));
-        g.setColorAt(1, c);
-        p->setBrush(g);
-        p->setPen(QPen(m_hovered ? Qt::white : c.darker(130),
-                       m_hovered ? 2.5 : 1.5));
-        p->drawRoundedRect(r, 18, 18);
 
-        // Badge ▶/▼ se tem filhos
+        // Fundo com gradiente linear suave
+        QLinearGradient g(r.topLeft(), r.bottomLeft());
+        g.setColorAt(0, c.lighter(118));
+        g.setColorAt(1, c.darker(108));
+        p->setBrush(g);
+        p->setPen(QPen(m_hovered ? Qt::white : c.darker(125),
+                       m_hovered ? 2.0 : 1.5));
+        p->drawRoundedRect(r, 8, 8);
+
+        // Indicador ▶/▼ expandir/recolher
         if (m_hasChildren) {
-            p->setPen(Qt::white);
+            p->setPen(QColor(255, 255, 255, 180));
             QFont badge; badge.setPointSize(7); p->setFont(badge);
-            p->drawText(QRectF(r.right()-18, r.top(), 16, r.height()),
+            p->drawText(QRectF(r.right() - 18, r.top(), 16, r.height()),
                         Qt::AlignCenter, m_expanded ? "▼" : "▶");
         }
 
+        // Texto do grupo
         p->setPen(Qt::white);
         QFont f; f.setPointSize(9); f.setBold(true); p->setFont(f);
-        const QRectF textR(r.left()+6, r.top(), r.width()-28, r.height());
-        p->drawText(textR, Qt::AlignVCenter | Qt::AlignLeft,
-                    m_label.left(18) + (m_label.length()>18?"…":""));
+        const double rightPad = m_hasChildren ? 20.0 : 8.0;
+        const QRectF tr(r.left() + 10, r.top(), r.width() - 10 - rightPad, r.height());
+        p->drawText(tr, Qt::AlignVCenter | Qt::AlignLeft,
+                    m_label.left(20) + (m_label.length() > 20 ? "…" : ""));
 
     } else { // Entry
         const QRectF r = boundingRect();
-        p->setBrush(QBrush(c.lighter(185)));
-        p->setPen(QPen(c, m_hovered ? 1.5 : 1));
-        p->drawRoundedRect(r, 13, 13);
-        p->setPen(c.darker(150));
+
+        // Fundo claro com borda colorida
+        p->setBrush(QBrush(m_hovered ? c.lighter(195) : c.lighter(210)));
+        p->setPen(QPen(c.darker(110), m_hovered ? 2.0 : 1.2));
+        p->drawRoundedRect(r, 6, 6);
+
+        // Ícone de entrada
+        p->setPen(c.darker(130));
         QFont f; f.setPointSize(8); p->setFont(f);
-        p->drawText(r.adjusted(6,0,-6,0), Qt::AlignCenter,
-                    m_label.left(16) + (m_label.length()>16?"…":""));
+        p->drawText(r.adjusted(6, 0, -6, 0), Qt::AlignVCenter | Qt::AlignLeft,
+                    "● " + (m_label.left(18) + (m_label.length() > 18 ? "…" : "")));
     }
 }
 
@@ -137,13 +154,15 @@ void MindNode::mousePressEvent(QGraphicsSceneMouseEvent* ev)
 {
     QGraphicsItem::mousePressEvent(ev);
     if (m_kind == Kind::Group && scene())
-        scene()->setProperty("_clickGroup", QVariant::fromValue(static_cast<void*>(m_group)));
+        scene()->setProperty("_clickGroup",
+                             QVariant::fromValue(static_cast<void*>(m_group)));
     else if (m_kind == Kind::Entry && scene())
-        scene()->setProperty("_clickEntry", QVariant::fromValue(static_cast<void*>(m_entry)));
+        scene()->setProperty("_clickEntry",
+                             QVariant::fromValue(static_cast<void*>(m_entry)));
 }
 
 void MindNode::hoverEnterEvent(QGraphicsSceneHoverEvent* ev)
-{ QGraphicsItem::hoverEnterEvent(ev); m_hovered = true; update(); }
+{ QGraphicsItem::hoverEnterEvent(ev); m_hovered = true;  update(); }
 void MindNode::hoverLeaveEvent(QGraphicsSceneHoverEvent* ev)
 { QGraphicsItem::hoverLeaveEvent(ev); m_hovered = false; update(); }
 
@@ -155,10 +174,10 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     setWindowTitle(tr("🧠 Mapa Mental — CfdmNote"));
     setWindowFlags(windowFlags() | Qt::WindowMaximizeButtonHint);
     const QRect scr = QApplication::primaryScreen()->availableGeometry();
-    resize(qMin(1200, scr.width()-40), qMin(800, scr.height()-40));
+    resize(qMin(1280, scr.width() - 40), qMin(820, scr.height() - 40));
 
     auto* root = new QVBoxLayout(this);
-    root->setContentsMargins(0,0,0,0);
+    root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
     // ── Toolbar ───────────────────────────────────────────────────────────────
@@ -182,20 +201,20 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     bar->addSeparator();
 
     m_chkEntries = new QCheckBox(tr("Mostrar entradas"));
-    m_chkEntries->setChecked(true);
+    m_chkEntries->setChecked(false);
     bar->addWidget(m_chkEntries);
 
-    auto* hint = new QLabel(tr("   Clique num grupo para expandir/recolher"));
+    auto* hint = new QLabel(tr("   Clique num grupo para expandir / recolher"));
     hint->setStyleSheet("color:#90cdf4; font-size:11px; font-style:italic;");
     bar->addWidget(hint);
     root->addWidget(bar);
 
-    // ── Splitter ──────────────────────────────────────────────────────────────
+    // ── Área principal: canvas + painel lateral ───────────────────────────────
     auto* splitter = new QSplitter(Qt::Horizontal);
     splitter->setChildrenCollapsible(false);
 
     m_scene = new QGraphicsScene(this);
-    m_scene->setBackgroundBrush(QColor("#0e1c2f"));
+    m_scene->setBackgroundBrush(QColor("#0d1b2e"));
 
     m_view = new MindView(m_scene);
     m_view->setRenderHint(QPainter::Antialiasing);
@@ -204,12 +223,12 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     m_view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     splitter->addWidget(m_view);
 
-    // Painel lateral
+    // Painel lateral de detalhes
     auto* panel = new QWidget();
-    panel->setFixedWidth(230);
+    panel->setFixedWidth(235);
     panel->setStyleSheet("QWidget{background:#f0f7ff;} QLabel{color:#1a365d;}");
     auto* pLay = new QVBoxLayout(panel);
-    pLay->setContentsMargins(12,12,12,12);
+    pLay->setContentsMargins(12, 12, 12, 12);
     pLay->setSpacing(8);
 
     auto* pH = new QLabel("📋 Detalhes");
@@ -236,43 +255,50 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     pLay->addStretch();
 
     // Legenda
-    const QStringList legItems = {
-        "▶ Nó com filhos — clique p/ expandir",
-        "▼ Nó expandido — clique p/ recolher",
-        "🖱️ Scroll = zoom",
-        "🖐️ Arrastar = mover canvas",
-    };
-    for (const auto& s : legItems) {
+    for (const auto& s : {tr("▶ grupo recolhido — clique p/ abrir"),
+                           tr("▼ grupo expandido — clique p/ fechar"),
+                           tr("🖱 Scroll = zoom"),
+                           tr("🖐 Arrastar = mover canvas")}) {
         auto* l = new QLabel(s);
-        l->setStyleSheet("font-size:10px; color:#4a5568; padding:1px 0;");
+        l->setStyleSheet("font-size:10px; color:#718096; padding:1px 0;");
         pLay->addWidget(l);
     }
     pLay->addSpacing(8);
+
     auto* btnClose = new QPushButton(tr("Fechar"));
-    btnClose->setStyleSheet("background:#e2e8f0; color:#1a365d; border-radius:5px; padding:8px;");
+    btnClose->setStyleSheet(
+        "background:#e2e8f0; color:#1a365d; border-radius:5px; padding:8px;"
+        "QPushButton:hover{background:#bee3f8;}");
     connect(btnClose, &QPushButton::clicked, this, &QDialog::accept);
     pLay->addWidget(btnClose);
 
     splitter->addWidget(panel);
-    splitter->setSizes({width()-230, 230});
+    splitter->setSizes({width() - 235, 235});
     root->addWidget(splitter, 1);
 
     // ── Conexões ──────────────────────────────────────────────────────────────
     connect(actFit, &QAction::triggered, this, &MindMapDialog::fitAll);
+
     connect(actExport, &QAction::triggered, this, [this]() {
-        const QString p = QFileDialog::getSaveFileName(this, tr("Exportar SVG"),
-                                                       QDir::homePath(), tr("SVG (*.svg)"));
+        const QString p = QFileDialog::getSaveFileName(
+            this, tr("Exportar Mapa Mental"), QDir::homePath(), tr("SVG (*.svg)"));
         if (p.isEmpty()) return;
-        const QRectF b = m_scene->itemsBoundingRect().adjusted(-20,-20,20,20);
-        QSvgGenerator g; g.setFileName(p); g.setViewBox(b);
-        QPainter pt(&g); m_scene->render(&pt, {}, b); pt.end();
+        const QRectF b = m_scene->itemsBoundingRect().adjusted(-30, -30, 30, 30);
+        QSvgGenerator gen;
+        gen.setFileName(p);
+        gen.setViewBox(b);
+        QPainter pt(&gen);
+        m_scene->render(&pt, {}, b);
+        pt.end();
         QMessageBox::information(this, tr("Exportado"), tr("Salvo em:\n%1").arg(p));
     });
+
     connect(actCollAll, &QAction::triggered, this, [this]() {
         m_expanded.clear();
         render();
         QTimer::singleShot(40, this, &MindMapDialog::fitAll);
     });
+
     connect(actExpAll, &QAction::triggered, this, [this]() {
         if (m_db)
             for (auto* g : m_db->rootGroup()->groupsRecursive(true))
@@ -280,11 +306,13 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
         render();
         QTimer::singleShot(40, this, &MindMapDialog::fitAll);
     });
+
     connect(m_chkEntries, &QCheckBox::toggled, this, [this]() {
-        render(); QTimer::singleShot(40, this, &MindMapDialog::fitAll);
+        render();
+        QTimer::singleShot(40, this, &MindMapDialog::fitAll);
     });
 
-    // Cliques nos nós via scene property
+    // Clique nos nós via propriedade da cena
     connect(m_scene, &QGraphicsScene::changed, this, [this](const QList<QRectF>&) {
         void* gp = m_scene->property("_clickGroup").value<void*>();
         if (gp) {
@@ -304,7 +332,11 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
         }
     });
 
-    // Começa com os grupos de nível 1 visíveis mas recolhidos
+    // Começa com grupos de nível 1 expandidos, sem entradas
+    if (m_db)
+        for (auto* g : m_db->rootGroup()->children())
+            m_expanded.insert(g);
+
     render();
     QTimer::singleShot(120, this, &MindMapDialog::fitAll);
 }
@@ -316,7 +348,106 @@ void MindMapDialog::showMap(QSharedPointer<Database> db, QWidget* parent)
     dlg->show();
 }
 
-// ─── Renderização ─────────────────────────────────────────────────────────────
+// ─── Algoritmo de layout em árvore horizontal ─────────────────────────────────
+//
+//  Raiz à esquerda, ramos se expandem para a direita.
+//  Cada nó recebe uma fatia vertical proporcional ao seu sub-projeto:
+//
+//    subtreeH(nó) = soma de subtreeH(filhos)   se expandido
+//                 = NODE_H + V_GAP             se recolhido / folha
+//
+//  Isso garante zero sobreposição em qualquer nível de profundidade.
+
+double MindMapDialog::subtreeH(Group* g) const
+{
+    // Nó recolhido ou sem filhos visíveis → ocupa apenas sua própria altura
+    if (!m_expanded.contains(g))
+        return MM_NODE_HG + MM_V_GAP;
+
+    const bool showEntries = m_chkEntries->isChecked();
+
+    double total = 0;
+    for (auto* child : g->children()) {
+        if (m_db && child == m_db->metadata()->recycleBin()) continue;
+        total += subtreeH(child);
+    }
+    if (showEntries)
+        total += g->entries().size() * (MM_NODE_HE + MM_V_GAP);
+
+    // Expandido mas vazio → altura mínima para o próprio nó
+    return total > 0 ? total : (MM_NODE_HG + MM_V_GAP);
+}
+
+void MindMapDialog::placeGroup(Group* g, double cx, double cy,
+                               int depth, const QColor& color)
+{
+    if (m_db && g == m_db->metadata()->recycleBin()) return;
+
+    const bool showEntries = m_chkEntries->isChecked();
+
+    // Filhos visíveis (sem lixeira)
+    QList<Group*> subGroups;
+    for (auto* child : g->children()) {
+        if (m_db && child == m_db->metadata()->recycleBin()) continue;
+        subGroups << child;
+    }
+    const bool hasKids = !subGroups.isEmpty()
+                      || (showEntries && !g->entries().isEmpty());
+    const bool isExp   = m_expanded.contains(g);
+
+    // ── Coloca o nó deste grupo ───────────────────────────────────────────────
+    auto* node = new MindNode(MindNode::Kind::Group, g->name(), color,
+                              g, nullptr, hasKids, isExp);
+    node->setPos(cx, cy);
+    m_scene->addItem(node);
+    m_groupPos[g] = {cx, cy};
+
+    if (!isExp) return;
+
+    // ── Distribui filhos verticalmente ao redor do centro deste nó ───────────
+    double totalH = 0;
+    for (auto* child : subGroups) totalH += subtreeH(child);
+    if (showEntries) totalH += g->entries().size() * (MM_NODE_HE + MM_V_GAP);
+    if (totalH < 1.0) return;
+
+    // X dos filhos = borda direita deste nó + gap + metade da largura do filho
+    const double childCX = cx + MM_NODE_W / 2.0 + MM_H_GAP + MM_NODE_W / 2.0;
+
+    // Começa no topo da fatia vertical deste nó
+    double curY = cy - totalH / 2.0;
+
+    // Sub-grupos
+    for (auto* child : subGroups) {
+        const double h       = subtreeH(child);
+        const double childCY = curY + h / 2.0;
+
+        // Curva bezier horizontal: borda-direita deste → borda-esquerda do filho
+        addCurve({cx + MM_NODE_W / 2.0, cy},
+                 {childCX - MM_NODE_W / 2.0, childCY},
+                 color, depth <= 1 ? 3 : 2);
+
+        placeGroup(child, childCX, childCY, depth + 1, color);
+        curY += h;
+    }
+
+    // Entradas (folhas finais)
+    if (showEntries) {
+        const QColor eColor = color;
+        for (auto* e : g->entries()) {
+            const double entryCY = curY + (MM_NODE_HE + MM_V_GAP) / 2.0;
+
+            addCurve({cx + MM_NODE_W / 2.0, cy},
+                     {childCX - MM_NODE_W / 2.0, entryCY},
+                     eColor.lighter(160), 1);
+
+            auto* eNode = new MindNode(MindNode::Kind::Entry, e->title(),
+                                       eColor, nullptr, e, false, false);
+            eNode->setPos(childCX, entryCY);
+            m_scene->addItem(eNode);
+            curY += MM_NODE_HE + MM_V_GAP;
+        }
+    }
+}
 
 void MindMapDialog::render()
 {
@@ -328,108 +459,67 @@ void MindMapDialog::render()
     const QString dbName = m_db->metadata()->name().isEmpty()
                            ? tr("Banco") : m_db->metadata()->name();
 
-    // Nó raiz
+    // ── Nó raiz (círculo central) ─────────────────────────────────────────────
     auto* rootNode = new MindNode(MindNode::Kind::Root, dbName,
                                   QColor("#2c5282"), rootGrp);
     rootNode->setPos(0, 0);
     m_scene->addItem(rootNode);
     m_groupPos[rootGrp] = {0, 0};
 
-    // Distribui filhos de nível 1 em 360° ao redor da raiz
-    const auto top = rootGrp->children();
-    if (top.isEmpty()) return;
-
-    const int n = top.size();
-    for (int i = 0; i < n; ++i) {
-        const double angle = (2.0 * M_PI * i) / n - M_PI / 2.0;
-        const double fan   = (2.0 * M_PI) / n;
-        renderGroup(top[i], {0,0}, angle, qMin(fan, M_PI * 0.85),
-                    220.0, 1, COLORS[i % COLORS.size()]);
+    // Filtra lixeira dos grupos de nível 1
+    QList<Group*> topGroups;
+    for (auto* g : rootGrp->children()) {
+        if (g == m_db->metadata()->recycleBin()) continue;
+        topGroups << g;
     }
-}
+    if (topGroups.isEmpty()) return;
 
-void MindMapDialog::renderGroup(Group* g, QPointF parentPos,
-                                double dirAngle, double fanAngle,
-                                double radius, int depth,
-                                const QColor& color)
-{
-    // Posição deste grupo
-    const QPointF pos(parentPos.x() + radius * qCos(dirAngle),
-                      parentPos.y() + radius * qSin(dirAngle));
-    m_groupPos[g] = pos;
+    // Altura total ocupada por todos os grupos de nível 1
+    double totalH = 0;
+    for (auto* g : topGroups) totalH += subtreeH(g);
 
-    const bool isExpanded = m_expanded.contains(g);
-    const bool hasKids = !g->children().isEmpty()
-                      || (m_chkEntries->isChecked() && !g->entries().isEmpty());
+    // X do centro dos grupos de nível 1: borda direita da raiz + gap + meia largura
+    const double lvl1X  = MM_ROOT_R + MM_H_GAP + MM_NODE_W / 2.0;
+    double curY = -totalH / 2.0;
 
-    // Curva do pai ao nó
-    addCurve(parentPos, pos, color, depth == 1 ? 3 : 2);
+    for (int i = 0; i < topGroups.size(); ++i) {
+        auto* g = topGroups[i];
+        const QColor color = COLORS[i % COLORS.size()];
+        const double h     = subtreeH(g);
+        const double groupCY = curY + h / 2.0;
 
-    // Nó do grupo
-    auto* node = new MindNode(MindNode::Kind::Group, g->name(), color,
-                              g, nullptr, hasKids, isExpanded);
-    node->setPos(pos);
-    m_scene->addItem(node);
+        // Curva do nó raiz até este grupo
+        addCurve({MM_ROOT_R, 0.0},
+                 {lvl1X - MM_NODE_W / 2.0, groupCY},
+                 color, 3);
 
-    if (!isExpanded) return;
-
-    // ── Filho expandidos: espalha em leque na direção do nó ──────────────────
-    const auto subs    = g->children();
-    const auto entries = m_chkEntries->isChecked() ? g->entries() : QList<Entry*>{};
-    const int totalChildren = subs.size() + entries.size();
-    if (totalChildren == 0) return;
-
-    // O leque se abre para fora (mesma direção do pai→este nó)
-    // com ângulo máximo de 110° para não voltar sobre si mesmo
-    const double childFan    = qMin(fanAngle, M_PI * 0.60);
-    const double childRadius = qMax(130.0, radius * 0.68);
-    const double step        = totalChildren > 1
-                               ? childFan / (totalChildren - 1)
-                               : 0;
-    const double startAngle  = dirAngle - childFan / 2.0;
-
-    int idx = 0;
-
-    // Subgrupos
-    const double subFan = totalChildren > 1 ? childFan / totalChildren : childFan;
-    for (auto* sub : subs) {
-        const double a = startAngle + idx * step;
-        renderGroup(sub, pos, a, subFan * 0.80, childRadius,
-                    depth + 1, color.lighter(100 + idx * 6));
-        ++idx;
-    }
-
-    // Entradas (folhas)
-    for (auto* e : entries) {
-        const double a   = startAngle + idx * step;
-        const QPointF ep(pos.x() + childRadius * 0.70 * qCos(a),
-                         pos.y() + childRadius * 0.70 * qSin(a));
-        addCurve(pos, ep, color.lighter(160), 1);
-        auto* en = new MindNode(MindNode::Kind::Entry, e->title(),
-                                color, nullptr, e);
-        en->setPos(ep);
-        m_scene->addItem(en);
-        ++idx;
+        placeGroup(g, lvl1X, groupCY, 1, color);
+        curY += h;
     }
 }
 
 void MindMapDialog::addCurve(QPointF from, QPointF to,
-                             const QColor& color, int w)
+                              const QColor& color, int w)
 {
+    // Bezier horizontal suave: pontos de controle no meio horizontal
+    const double dx = (to.x() - from.x()) * 0.55;
     QPainterPath path;
     path.moveTo(from);
-    const QPointF ctrl1 = from + (to - from) * 0.4;
-    const QPointF ctrl2 = from + (to - from) * 0.6;
-    path.cubicTo(ctrl1, ctrl2, to);
-    auto* pi = m_scene->addPath(path, QPen(color, w, Qt::SolidLine,
-                                           Qt::RoundCap, Qt::RoundJoin));
-    pi->setZValue(0);
+    path.cubicTo(from.x() + dx, from.y(),
+                 to.x()   - dx, to.y(),
+                 to.x(), to.y());
+
+    auto* item = m_scene->addPath(path,
+                                  QPen(color, w, Qt::SolidLine,
+                                       Qt::RoundCap, Qt::RoundJoin));
+    item->setZValue(0);
 }
 
 void MindMapDialog::fitAll()
 {
-    m_view->fitInView(m_scene->itemsBoundingRect().adjusted(-50,-50,50,50),
-                      Qt::KeepAspectRatio);
+    m_view->fitInView(
+        m_scene->itemsBoundingRect().adjusted(-50, -50, 50, 50),
+        Qt::KeepAspectRatio);
 }
 
 void MindMapDialog::updateDetail(Entry* e)
@@ -452,6 +542,6 @@ void MindMapDialog::updateDetail(Group* g)
     m_detailTitle->setText("📁 " + g->name());
     const int direct = g->entries().size();
     const int total  = g->entriesRecursive().size();
-    m_detailSub->setText(tr("%1 entradas diretas · %2 no total").arg(direct).arg(total));
+    m_detailSub->setText(tr("%1 entradas · %2 total").arg(direct).arg(total));
     m_detailBody->setText(tr("%1 subgrupo(s)").arg(g->children().size()));
 }
