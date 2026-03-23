@@ -66,9 +66,31 @@ function initMindMap(data) {
   }
 }
 
-function zoomIn()    { if (mind) mind.scale(mind.scaleVal + mind.scaleSensitivity); }
-function zoomOut()   { if (mind) mind.scale(mind.scaleVal - mind.scaleSensitivity); }
+function zoomIn()    { if (mind) mind.scale(mind.scaleVal * 1.3); }
+function zoomOut()   { if (mind) mind.scale(mind.scaleVal * 0.75); }
 function zoomReset() { if (mind && mind.toCenter) mind.toCenter(); }
+
+// Pan manual — fallback para Qt5WebEngine onde setPointerCapture pode falhar
+(function() {
+  var panning = false, sx = 0, sy = 0;
+  document.addEventListener('mousedown', function(e) {
+    var tag = (e.target.tagName || '').toLowerCase();
+    // Só ativa pan no fundo do mapa (não em nós)
+    if (tag === 'me-mind' || tag === 'svg' || tag === 'me-map' || e.target.id === 'map') {
+      panning = true;
+      sx = e.clientX; sy = e.clientY;
+      e.preventDefault();
+    }
+  }, true);
+  document.addEventListener('mousemove', function(e) {
+    if (!panning || !mind) return;
+    var dx = e.clientX - sx, dy = e.clientY - sy;
+    sx = e.clientX; sy = e.clientY;
+    var el = document.querySelector('me-mind');
+    if (el) { el.scrollLeft -= dx; el.scrollTop -= dy; }
+  }, true);
+  document.addEventListener('mouseup', function() { panning = false; }, true);
+})();
 </script>
 </body>
 </html>
