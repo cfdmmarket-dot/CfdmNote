@@ -9,6 +9,7 @@
   html, body { width: 100%; height: 100%; overflow: hidden; background: #f8fafc; }
   #map { width: 100%; height: 100%; }
   .mind-elixir-toolbar { display: none !important; }
+  .mind-elixir-ghost   { display: none !important; }
 </style>
 </head>
 <body>
@@ -20,7 +21,8 @@ var mind = null;
 function initMindMap(data) {
   try {
     var ME = (typeof MindElixir === 'function') ? MindElixir
-           : (MindElixir && MindElixir.default) ? MindElixir.default
+           : (typeof MindElixirLite !== 'undefined' && MindElixirLite.default) ? MindElixirLite.default
+           : (typeof MindElixir !== 'undefined' && MindElixir.default) ? MindElixir.default
            : null;
 
     if (!ME) {
@@ -94,13 +96,21 @@ function initMindMap(data) {
       });
 
       // Expandir/recolher ao clicar no nó
-      mind.bus.addListener('selectNode', function(node, event) {
+      mind.bus.addListener('selectNode', function(node) {
         if (!node || !node.children || node.children.length === 0) return;
         try {
+          var el = mind.findEle(node.id);
+          if (!el) return;
           if (node.expanded === false) {
-            mind.expandNode(mind.findEle(node.id));
+            mind.expandNode(el);
           } else {
-            mind.collapseNode(mind.findEle(node.id));
+            // v5: collapseNode via expandNode com flag false
+            if (typeof mind.collapseNode === 'function') {
+              mind.collapseNode(el);
+            } else {
+              node.expanded = false;
+              mind.linkDiv();
+            }
           }
         } catch(err) {}
       });
@@ -125,7 +135,8 @@ function setLayout(dir) {
     mind = null;
   } catch(e) {}
   var ME = (typeof MindElixir === 'function') ? MindElixir
-         : (MindElixir && MindElixir.default) ? MindElixir.default : null;
+         : (typeof MindElixirLite !== 'undefined' && MindElixirLite.default) ? MindElixirLite.default
+         : null;
   if (!ME) return;
   mind = new ME({
     el: '#map', direction: dir,
