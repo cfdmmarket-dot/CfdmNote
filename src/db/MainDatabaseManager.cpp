@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QUuid>
+#include <QTimer>
 #include <QDebug>
 
 #include "core/Database.h"
@@ -17,6 +18,7 @@
 #include "gui/MainWindow.h"
 #include "gui/DatabaseWidget.h"
 #include "gui/DatabaseTabWidget.h"
+#include "core/Config.h"
 
 QString MainDatabaseManager::defaultDatabasePath()
 {
@@ -134,8 +136,26 @@ bool MainDatabaseManager::openInMainWindow(MainWindow* mainWindow)
         return false;
     }
 
+    // Define tamanhos do splitter de grupos antes de adicionar o widget
+    // (evita height()=0 quando applySplitterSizes() é chamado)
+    if (config()->get(Config::GUI_GroupSplitterState).toList().isEmpty()) {
+        QVariantList defaultSizes = {400, 180};
+        config()->set(Config::GUI_GroupSplitterState, defaultSizes);
+    }
+
     auto* dbWidget = new DatabaseWidget(db, tabWidget);
     tabWidget->addDatabaseTab(dbWidget);
+
+    // Reaplica o splitter após o widget estar visível (altura real disponível)
+    QTimer::singleShot(300, dbWidget, [dbWidget]() {
+        const int h = dbWidget->height();
+        if (h > 0) {
+            dbWidget->setSplitterSizes({
+                {Config::GUI_GroupSplitterState,
+                 QList<int>({static_cast<int>(h * 0.65), static_cast<int>(h * 0.35)})}
+            });
+        }
+    });
 
     return true;
 }
