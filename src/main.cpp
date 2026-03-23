@@ -28,6 +28,8 @@
 #include <QFileInfo>
 #include <QUrl>
 #include <QDesktopServices>
+#include <QStatusBar>
+#include <QPushButton>
 
 #include "core/Metadata.h"
 #include "core/EntryAttributes.h"
@@ -53,11 +55,12 @@
 #include "gui/ExportNoteDialog.h"
 #include "gui/ReminderDialog.h"
 #include "gui/ManualDialog.h"
+#include "gui/DatabaseInfoDialog.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
 
 static const QString APP_NAME    = "CfdmNote";
-static const QString APP_VERSION = "1.6.0";
+static const QString APP_VERSION = "1.7.0";
 
 /**
  * Percorre todos os widgets filhos de root procurando por objectName == name.
@@ -748,6 +751,16 @@ int main(int argc, char* argv[])
 
     cfdmMenu->addSeparator();
 
+    // Informações dos bancos (Ctrl+Shift+I)
+    QAction* actDbInfo = cfdmMenu->addAction(
+        QIcon::fromTheme("dialog-information"),
+        QObject::tr("&Informações dos Bancos...")
+    );
+    actDbInfo->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_I));
+    QObject::connect(actDbInfo, &QAction::triggered, [&mainWindow]() {
+        DatabaseInfoDialog::showInfo(&mainWindow, &mainWindow);
+    });
+
     // Manual de Consulta (F1)
     QAction* actManual = cfdmMenu->addAction(
         QIcon::fromTheme("help-contents"),
@@ -791,7 +804,23 @@ int main(int argc, char* argv[])
 
     mainWindow.show();
 
-    // ── Abre banco principal (sem senha) → substitui a tela de boas-vindas ──
+    // ── Botão 📊 na barra de status → abre DatabaseInfoDialog ────────────────
+    {
+        auto* btnDbInfo = new QPushButton(QObject::tr("📊  DB Info"), &mainWindow);
+        btnDbInfo->setFlat(true);
+        btnDbInfo->setFixedHeight(20);
+        btnDbInfo->setStyleSheet(
+            "QPushButton { font-size: 11px; color: #2c5282; border: none; "
+            "padding: 0 8px; } "
+            "QPushButton:hover { color: #1a365d; text-decoration: underline; }");
+        btnDbInfo->setToolTip(QObject::tr("Informações dos bancos abertos (Ctrl+Shift+I)"));
+        mainWindow.statusBar()->addPermanentWidget(btnDbInfo);
+        QObject::connect(btnDbInfo, &QPushButton::clicked, [&mainWindow]() {
+            DatabaseInfoDialog::showInfo(&mainWindow, &mainWindow);
+        });
+    }
+
+    // ── Abre banco principal (sem senha) → substitui a tela de boas-vendas ──
     // O cofre criptografado só abre quando invocado pelo menu CfdmNote
     QTimer::singleShot(100, &mainWindow, [&mainWindow]() {
         MainDatabaseManager::openInMainWindow(&mainWindow);
