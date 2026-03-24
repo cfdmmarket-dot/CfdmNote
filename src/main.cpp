@@ -82,6 +82,7 @@
 #include "gui/AudioCaptureDialog.h"
 #include "gui/TranslateDialog.h"
 #include "gui/VoiceCommandDialog.h"
+#include "gui/DependencyCheckDialog.h"
 #include "notes/NoteManager.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
@@ -1483,6 +1484,18 @@ int main(int argc, char* argv[])
         ManualDialog::showManual(&mainWindow);
     });
 
+    // Verificar Dependências
+    QObject::connect(
+        cfdmMenu->addAction(
+            QIcon::fromTheme("system-search"),
+            QObject::tr("🔍 Verificar &Dependências...")),
+        &QAction::triggered,
+        [&mainWindow]() {
+            DependencyCheckDialog::showFull(&mainWindow);
+        });
+
+    cfdmMenu->addSeparator();
+
     // Sobre CfdmNote
     QObject::connect(
         cfdmMenu->addAction(QObject::tr("Sobre &CfdmNote")),
@@ -1869,6 +1882,11 @@ int main(int argc, char* argv[])
             if (closedPath != mainPath)
                 ThemeManager::apply(ThemeManager::Theme::NavyBlue, &app);
         });
+    });
+
+    // ── Verificação de dependências (primeira execução ou se faltar algo) ────
+    QTimer::singleShot(800, &mainWindow, [&mainWindow]() {
+        DependencyCheckDialog::checkOnStartup(&mainWindow);
     });
 
     // ── Argumento de linha de comando: --database /caminho/banco.kdbx ────────
