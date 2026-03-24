@@ -1,5 +1,5 @@
 # CfdmNote — Manual de Consulta
-**Versão 2.4.5** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
+**Versão 2.5.0** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
 
 > 💡 **Como saber se o manual está atualizado:** a versão acima deve coincidir com a versão exibida na tela de login. Se for diferente, o manual está desatualizado para essa release.
 
@@ -37,6 +37,7 @@
 28. [Descoberta e CLI de Banco de Dados](#28-descoberta-e-cli-de-banco-de-dados)
 29. [Lista Completa de Funcionalidades](#29-lista-completa-de-funcionalidades)
 30. [Aba Links — Abrir com Programa](#30-aba-links--abrir-com-programa)
+31. [Seção do Saber — Glossário Pessoal](#31-seção-do-saber--glossário-pessoal)
 
 ---
 
@@ -961,7 +962,8 @@ Todas as funcionalidades implementadas, organizadas por versão. Atualize esta s
 | v2.4.2 | Verificador de Dependências no startup | — |
 | v2.4.3 | Aba Links — Abrir com programa (context menu) | clique dir. |
 | v2.4.4 | Fix: whisper-cli ✅ quando openai-whisper está instalado | — |
-| **v2.4.5** | **Fix: transcrição de áudio — detecta ~/.local/bin/whisper, feedback em tempo real** | **—** |
+| v2.4.5 | Fix: transcrição de áudio — detecta ~/.local/bin/whisper, feedback em tempo real | — |
+| **v2.5.0** | **Seção do Saber — Glossário pessoal (Ctrl+Shift+K)** | **Ctrl+Shift+K** |
 
 > 💡 Esta tabela é atualizada a cada nova funcionalidade. A versão no cabeçalho deste manual confirma que está sincronizado com a release atual.
 
@@ -1006,5 +1008,56 @@ O duplo clique continua funcionando como antes — abre com o programa padrão d
 
 ---
 
-*CfdmNote v2.4.5 — Desenvolvido por CFDM*
+---
+
+## 31. Seção do Saber — Glossário Pessoal
+
+Dicionário pessoal integrado ao CfdmNote. Salve termos, definições, sinônimos e exemplos — tudo pesquisável e inserível em qualquer nota.
+
+**Abrir:** Menu CfdmNote → 🧠 Seção do Saber — Glossário... · Atalho: `Ctrl+Shift+K`
+
+### Interface
+
+| Painel | Função |
+|--------|--------|
+| Esquerda — Categorias | Filtra por categoria. "📚 Todos" mostra o glossário completo |
+| Centro — Lista de Termos | Termos filtrados; clique para ver detalhe; duplo clique para editar |
+| Direita — Detalhe | Mostra definição completa, sinônimos e exemplo |
+
+### Campos de cada termo
+
+| Campo | Obrigatório | Descrição |
+|-------|-------------|-----------|
+| Termo | Sim | Palavra ou expressão |
+| Categoria | Não | Agrupa termos (ex: Marketing, Técnico, Idioma) |
+| Definição | Sim | Explicação completa |
+| Sinônimos | Não | Lista separada por vírgula |
+| Exemplo | Não | Frase de exemplo de uso |
+
+### Ações disponíveis
+
+- **＋ Novo Termo** — abre editor; campos Termo e Definição são obrigatórios
+- **✏ Editar** — edita o termo selecionado (também por duplo clique)
+- **🗑 Apagar** — remove com confirmação (tecla `Delete` também funciona)
+- **📝 Inserir na Nota** — insere o termo + definição na nota da entrada selecionada no banco
+- **🔍 Busca** — pesquisa em tempo real em termos, definições e sinônimos
+
+### Inserção automática na nota
+Ao clicar "📝 Inserir na Nota", o seguinte bloco é adicionado ao final da nota da entrada selecionada:
+
+```
+---
+📖 **Termo**
+Definição completa aqui
+🔗 Sinônimos: sin1, sin2
+
+*Exemplo: frase de exemplo*
+```
+
+### Armazenamento
+Os termos ficam na tabela `glossary` do banco `.ksdb` (SQLite local). Não dependem de conexão com a internet.
+
+---
+
+*CfdmNote v2.5.0 — Desenvolvido por CFDM*
 *Manual atualizado em 2026-03-24*

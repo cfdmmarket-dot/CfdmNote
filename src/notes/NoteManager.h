@@ -44,6 +44,25 @@ public:
     QStringList getLinksFrom(const QString& noteId) const;
     QStringList getLinksTo(const QString& noteId) const;
 
+    // ── Glossário (Seção do Saber) ────────────────────────────────────────────
+    struct GlossaryTerm {
+        QString id;
+        QString term;
+        QString definition;
+        QString category;
+        QString synonyms;   // separados por vírgula
+        QString example;
+        QString created;
+        QString modified;
+    };
+
+    QString                  addGlossaryTerm(const GlossaryTerm& t);
+    bool                     updateGlossaryTerm(const GlossaryTerm& t);
+    bool                     deleteGlossaryTerm(const QString& id);
+    QList<GlossaryTerm>      getGlossaryTerms(const QString& category = {}) const;
+    QList<GlossaryTerm>      searchGlossaryTerms(const QString& query) const;
+    QStringList              getGlossaryCategories() const;
+
 private:
     NoteManager() = default;
     ~NoteManager();

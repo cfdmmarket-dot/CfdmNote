@@ -383,6 +383,26 @@
 
 ---
 
+## Sessão 19 — Seção do Saber: Glossário Pessoal (v2.5.0)
+**Data:** 2026-03-24
+**Versão:** v2.5.0
+
+### Feature 018 — Glossário integrado
+- `NoteManager` estendido: tabela `glossary` (id, term, definition, category, synonyms, example, created, modified)
+- Métodos: `addGlossaryTerm`, `updateGlossaryTerm`, `deleteGlossaryTerm`, `getGlossaryTerms`, `searchGlossaryTerms`, `getGlossaryCategories`
+- Migração automática via `CREATE TABLE IF NOT EXISTS` — bancos existentes recebem a tabela sem recriar
+- `GlossaryDialog`: 3 painéis (categorias | tabela | detalhe), busca em tempo real, editor modal
+- Categoria é um ComboBox editável — usuário cria categorias novas diretamente
+- Duplo clique no termo abre editor; `Delete` apaga com confirmação
+- "📝 Inserir na Nota" adiciona bloco formatado (📖 **Termo** + definição + sinônimos + exemplo) na nota da entrada atual
+- Atalho: `Ctrl+Shift+K` | Menu CfdmNote → "🧠 Seção do Saber — Glossário..."
+- MANUAL.md: seção 31 + entrada na tabela de funcionalidades
+
+### Nota técnica
+- Bugfix: `sed -i` com `\n` gera literal em vez de newline em alguns contextos → CMakeLists corrompido → linker não encontrava `main()`. Corrigido manualmente.
+
+---
+
 ## Sessão 18 — Fix transcrição de áudio (v2.4.5)
 **Data:** 2026-03-24
 **Versão:** v2.4.5

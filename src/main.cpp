@@ -83,6 +83,7 @@
 #include "gui/TranslateDialog.h"
 #include "gui/VoiceCommandDialog.h"
 #include "gui/DependencyCheckDialog.h"
+#include "gui/GlossaryDialog.h"
 #include "notes/NoteManager.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
@@ -1483,6 +1484,27 @@ int main(int argc, char* argv[])
     QObject::connect(actManual, &QAction::triggered, [&mainWindow]() {
         ManualDialog::showManual(&mainWindow);
     });
+
+    // Seção do Saber — Glossário pessoal (018)
+    {
+        QAction* actGlossary = cfdmMenu->addAction(
+            QIcon::fromTheme("accessories-dictionary"),
+            QObject::tr("🧠 Seção do &Saber — Glossário..."));
+        actGlossary->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
+        QObject::connect(actGlossary, &QAction::triggered, [&mainWindow]() {
+            auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+            QSharedPointer<Database> db;
+            Entry* entry = nullptr;
+            if (dbTabWidget && dbTabWidget->currentDatabaseWidget()) {
+                auto* dbw = dbTabWidget->currentDatabaseWidget();
+                db    = dbw->database();
+                entry = dbw->currentSelectedEntry();
+            }
+            GlossaryDialog::showGlossary(entry, db, &mainWindow);
+        });
+    }
+
+    cfdmMenu->addSeparator();
 
     // Verificar Dependências
     QObject::connect(

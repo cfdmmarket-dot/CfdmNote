@@ -118,6 +118,17 @@ bool NoteManager::createSchema()
             entry_id    TEXT REFERENCES entries(id) ON DELETE CASCADE,
             filename    TEXT NOT NULL,
             data        BLOB
+        ))",
+
+        R"(CREATE TABLE IF NOT EXISTS glossary (
+            id          TEXT PRIMARY KEY,
+            term        TEXT NOT NULL COLLATE NOCASE,
+            definition  TEXT NOT NULL DEFAULT '',
+            category    TEXT NOT NULL DEFAULT 'Geral',
+            synonyms    TEXT NOT NULL DEFAULT '',
+            example     TEXT NOT NULL DEFAULT '',
+            created     DATETIME DEFAULT CURRENT_TIMESTAMP,
+            modified    DATETIME DEFAULT CURRENT_TIMESTAMP
         ))"
     };
 
@@ -380,4 +391,102 @@ QStringList NoteManager::getLinksTo(const QString& noteId) const
 QString NoteManager::newUuid() const
 {
     return QUuid::createUuid().toString(QUuid::WithoutBraces);
+}
+
+// ─── Glossário ────────────────────────────────────────────────────────────────
+
+static NoteManager::GlossaryTerm rowToTerm(const QSqlQuery& q)
+{
+    NoteManager::GlossaryTerm t;
+    t.id         = q.value("id").toString();
+    t.term       = q.value("term").toString();
+    t.definition = q.value("definition").toString();
+    t.category   = q.value("category").toString();
+    t.synonyms   = q.value("synonyms").toString();
+    t.example    = q.value("example").toString();
+    t.created    = q.value("created").toString();
+    t.modified   = q.value("modified").toString();
+    return t;
+}
+
+QString NoteManager::addGlossaryTerm(const GlossaryTerm& t)
+{
+    if (!m_open) return {};
+    const QString id = newUuid();
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO glossary(id,term,definition,category,synonyms,example) "
+              "VALUES(:id,:term,:def,:cat,:syn,:ex)");
+    q.bindValue(":id",   id);
+    q.bindValue(":term", t.term);
+    q.bindValue(":def",  t.definition);
+    q.bindValue(":cat",  t.category.isEmpty() ? "Geral" : t.category);
+    q.bindValue(":syn",  t.synonyms);
+    q.bindValue(":ex",   t.example);
+    return q.exec() ? id : QString();
+}
+
+bool NoteManager::updateGlossaryTerm(const GlossaryTerm& t)
+{
+    if (!m_open) return false;
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE glossary SET term=:term,definition=:def,category=:cat,"
+              "synonyms=:syn,example=:ex,modified=CURRENT_TIMESTAMP WHERE id=:id");
+    q.bindValue(":id",   t.id);
+    q.bindValue(":term", t.term);
+    q.bindValue(":def",  t.definition);
+    q.bindValue(":cat",  t.category.isEmpty() ? "Geral" : t.category);
+    q.bindValue(":syn",  t.synonyms);
+    q.bindValue(":ex",   t.example);
+    return q.exec();
+}
+
+bool NoteManager::deleteGlossaryTerm(const QString& id)
+{
+    if (!m_open) return false;
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM glossary WHERE id=:id");
+    q.bindValue(":id", id);
+    return q.exec();
+}
+
+QList<NoteManager::GlossaryTerm> NoteManager::getGlossaryTerms(const QString& category) const
+{
+    QList<GlossaryTerm> list;
+    if (!m_open) return list;
+    QSqlQuery q(m_db);
+    if (category.isEmpty())
+        q.prepare("SELECT * FROM glossary ORDER BY term COLLATE NOCASE");
+    else {
+        q.prepare("SELECT * FROM glossary WHERE category=:cat ORDER BY term COLLATE NOCASE");
+        q.bindValue(":cat", category);
+    }
+    if (!q.exec()) return list;
+    while (q.next()) list << rowToTerm(q);
+    return list;
+}
+
+QList<NoteManager::GlossaryTerm> NoteManager::searchGlossaryTerms(const QString& query) const
+{
+    QList<GlossaryTerm> list;
+    if (!m_open || query.trimmed().isEmpty()) return list;
+    const QString like = "%" + query.trimmed() + "%";
+    QSqlQuery q(m_db);
+    q.prepare("SELECT * FROM glossary WHERE term LIKE :q OR definition LIKE :q2 "
+              "OR synonyms LIKE :q3 ORDER BY term COLLATE NOCASE");
+    q.bindValue(":q",  like);
+    q.bindValue(":q2", like);
+    q.bindValue(":q3", like);
+    if (!q.exec()) return list;
+    while (q.next()) list << rowToTerm(q);
+    return list;
+}
+
+QStringList NoteManager::getGlossaryCategories() const
+{
+    QStringList cats;
+    if (!m_open) return cats;
+    QSqlQuery q(m_db);
+    q.exec("SELECT DISTINCT category FROM glossary ORDER BY category COLLATE NOCASE");
+    while (q.next()) cats << q.value(0).toString();
+    return cats;
 }
