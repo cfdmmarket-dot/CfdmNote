@@ -355,6 +355,34 @@
 
 ---
 
+## Sessão 17 — Feature 006: Abrir com + Lista de Funcionalidades (v2.4.3)
+**Data:** 2026-03-24
+**Versão:** v2.4.3
+
+### Features implementadas ✅
+
+#### Aba Links — "Abrir com" (feature 006)
+- **Menu de contexto** (clique direito) em ambas as listas (Local Disk + Removable)
+- Opções: 📂 Abrir · 📁 Abrir pasta que contém · ⎘ Copiar caminho · 🖥 Abrir com...
+- **Detecção automática de apps** por extensão via `QStandardPaths::findExecutable` + `xdg-mime query default`
+- Apps mapeados para 30+ extensões: pdf, docx, mp4, mp3, jpg, txt, md, py, zip, etc.
+- **Lembrar app por extensão** via `QSettings("CfdmNote","CfdmNote").value("openwith/<ext>")`
+- "Abrir pasta que contém" disponível apenas para arquivos (não pastas)
+- "Copiar caminho" copia para clipboard sem abrir nada
+- Duplo clique continua com comportamento original (xdg-open)
+
+#### Lista de Funcionalidades no Manual (seção 29)
+- Tabela completa de todas as features com versão e atalho
+- Botão "⚡ Funcionalidades" no rodapé do ManualDialog — navega direto para a seção 29
+- Seção 30 explica o novo "Abrir com" com tabela de extensões
+
+### Decisão técnica
+- Context menu injeto via `Qt::CustomContextMenu` + `customContextMenuRequested` — não interfere no KeePassXC
+- `QMimeDatabase` (Qt5 built-in) para detecção de MIME type — sem dependência externa
+- Apps detectados só aparecem no menu se estiverem instalados na máquina
+
+---
+
 ## Sessão 16 — Regra de Ouro Global: Proceed = Always Yes
 **Data:** 2026-03-24
 **Versão:** v2.4.2

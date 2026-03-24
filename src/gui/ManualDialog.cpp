@@ -216,6 +216,11 @@ ManualDialog::ManualDialog(QWidget* parent)
                                         .arg(CFDMNOTE_VERSION));
     versionLabel->setStyleSheet("font-size: 10px; color: #718096;");
 
+    auto* btnFeatures = new QPushButton(tr("⚡ Funcionalidades"));
+    btnFeatures->setFixedHeight(28);
+    btnFeatures->setToolTip(tr("Ver lista completa de funcionalidades por versão"));
+    btnFeatures->setStyleSheet("font-size: 11px; padding: 0 12px; color: #276749;");
+
     auto* btnDevlog = new QPushButton(tr("📋 Diário de Dev"));
     btnDevlog->setFixedHeight(28);
     btnDevlog->setToolTip(tr("Abrir o diário completo de desenvolvimento (DEVLOG.md)"));
@@ -227,6 +232,7 @@ ManualDialog::ManualDialog(QWidget* parent)
 
     footerLayout->addWidget(versionLabel);
     footerLayout->addStretch();
+    footerLayout->addWidget(btnFeatures);
     footerLayout->addWidget(btnDevlog);
     footerLayout->addWidget(btnClose);
     mainLayout->addWidget(footer);
@@ -242,6 +248,30 @@ ManualDialog::ManualDialog(QWidget* parent)
     connect(btnPrev,  &QPushButton::clicked, this, &ManualDialog::onSearchPrev);
     connect(btnClear, &QPushButton::clicked, this, &ManualDialog::onClearSearch);
     connect(btnClose, &QPushButton::clicked, this, &QDialog::accept);
+    connect(btnFeatures, &QPushButton::clicked, this, [this]() {
+        // Recarrega o manual e navega para a seção 29
+        m_browser->setHtml(renderToHtml(m_rawMarkdown));
+        buildToc(m_rawMarkdown);
+        // Localiza a âncora da seção "29. Lista Completa"
+        const QString html = m_browser->toHtml();
+        int tocIdx = 0;
+        for (const QString& line : m_rawMarkdown.split('\n')) {
+            if (line.startsWith("## 29.")) {
+                m_browser->scrollToAnchor(QString("sec%1").arg(tocIdx));
+                // Selecionar item no TOC
+                for (int i = 0; i < m_tocList->count(); ++i) {
+                    if (m_tocList->item(i)->data(Qt::UserRole).toInt() == tocIdx) {
+                        m_tocList->setCurrentRow(i);
+                        break;
+                    }
+                }
+                break;
+            }
+            if (line.startsWith("# ") || line.startsWith("## "))
+                ++tocIdx;
+        }
+        Q_UNUSED(html);
+    });
     connect(btnDevlog, &QPushButton::clicked, this, [this]() {
         QFile f(":/cfdmnote/DEVLOG.md");
         QString md;

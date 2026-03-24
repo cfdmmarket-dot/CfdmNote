@@ -13,6 +13,17 @@
 #include <QApplication>
 #include <QStorageInfo>
 #include <QMenu>
+#include <QClipboard>
+#include <QProcess>
+#include <QMimeDatabase>
+#include <QMimeType>
+#include <QDialog>
+#include <QListWidget>
+#include <QDialogButtonBox>
+#include <QLineEdit>
+#include <QLabel>
+#include <QSettings>
+#include <QStandardPaths>
 
 #include "core/Entry.h"
 #include "core/Database.h"
@@ -52,6 +63,7 @@ LinksPanelWidget::LinksPanelWidget(QWidget* parent)
     connect(m_btnOpenLocal, &QPushButton::clicked, this, &LinksPanelWidget::onOpenLocal);
     connect(m_localList, &QListWidget::itemDoubleClicked,
             this, [this](QListWidgetItem* item) { openPath(item->data(Qt::UserRole).toString()); });
+    setupContextMenu(m_localList);
 
     // Seção External / Removable Disk
     mainLayout->addWidget(
@@ -70,6 +82,7 @@ LinksPanelWidget::LinksPanelWidget(QWidget* parent)
     connect(m_btnOpenRemovable, &QPushButton::clicked, this, &LinksPanelWidget::onOpenRemovable);
     connect(m_removableList, &QListWidget::itemDoubleClicked,
             this, [this](QListWidgetItem* item) { openPath(item->data(Qt::UserRole).toString()); });
+    setupContextMenu(m_removableList);
 
     mainLayout->addStretch();
 }
@@ -252,6 +265,191 @@ void LinksPanelWidget::saveLinks()
 
     QString err;
     m_db->save(Database::Atomic, {}, &err);
+}
+
+// ─── Sugestão de apps por extensão ────────────────────────────────────────────
+
+QStringList LinksPanelWidget::suggestAppsForPath(const QString& path)
+{
+    const QFileInfo fi(path);
+    if (!fi.isFile()) return {};
+
+    const QString ext = fi.suffix().toLower();
+
+    // Mapeia extensão → lista de executáveis candidatos
+    static const QMap<QString, QStringList> extMap = {
+        { "pdf",  {"evince","okular","xreader","zathura","libreoffice"} },
+        { "doc",  {"libreoffice","wps","abiword"} },
+        { "docx", {"libreoffice","wps","abiword"} },
+        { "odt",  {"libreoffice"} },
+        { "xls",  {"libreoffice","gnumeric"} },
+        { "xlsx", {"libreoffice","gnumeric"} },
+        { "ods",  {"libreoffice"} },
+        { "ppt",  {"libreoffice"} },
+        { "pptx", {"libreoffice"} },
+        { "txt",  {"gedit","kate","mousepad","pluma","xed","nano","vim"} },
+        { "md",   {"gedit","kate","mousepad","marktext","ghostwriter"} },
+        { "py",   {"gedit","kate","spyder","thonny","idle"} },
+        { "sh",   {"gedit","kate","bash"} },
+        { "mp4",  {"vlc","mpv","totem","celluloid","smplayer"} },
+        { "mkv",  {"vlc","mpv","totem","celluloid","smplayer"} },
+        { "avi",  {"vlc","mpv","totem","smplayer"} },
+        { "mov",  {"vlc","mpv"} },
+        { "webm", {"vlc","mpv","totem"} },
+        { "mp3",  {"vlc","mpv","rhythmbox","clementine","audacious"} },
+        { "ogg",  {"vlc","mpv","rhythmbox","audacious"} },
+        { "flac", {"vlc","mpv","rhythmbox","audacious"} },
+        { "wav",  {"vlc","mpv","audacity"} },
+        { "jpg",  {"eog","shotwell","gimp","gwenview","gthumb"} },
+        { "jpeg", {"eog","shotwell","gimp","gwenview","gthumb"} },
+        { "png",  {"eog","shotwell","gimp","gwenview","gthumb"} },
+        { "gif",  {"eog","gimp","firefox"} },
+        { "svg",  {"inkscape","eog","gimp"} },
+        { "zip",  {"file-roller","ark","nautilus"} },
+        { "tar",  {"file-roller","ark"} },
+        { "gz",   {"file-roller","ark"} },
+        { "7z",   {"file-roller","ark"} },
+        { "rar",  {"file-roller","ark"} },
+    };
+
+    QStringList found;
+    const QStringList candidates = extMap.value(ext);
+    for (const QString& app : candidates) {
+        if (!QStandardPaths::findExecutable(app).isEmpty())
+            found << app;
+    }
+
+    // Tenta via xdg-mime para detectar o padrão do sistema
+    QProcess p;
+    QMimeDatabase mdb;
+    const QString mime = mdb.mimeTypeForFile(path).name();
+    p.start("xdg-mime", {"query", "default", mime});
+    if (p.waitForFinished(1000)) {
+        QString desktop = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
+        // remove .desktop, ex: "vlc.desktop" → "vlc"
+        if (desktop.endsWith(".desktop"))
+            desktop.chop(8);
+        if (!desktop.isEmpty() && !found.contains(desktop))
+            found.prepend(desktop); // padrão do sistema vai primeiro
+    }
+
+    return found;
+}
+
+// ─── Menu de contexto ─────────────────────────────────────────────────────────
+
+void LinksPanelWidget::setupContextMenu(QListWidget* list)
+{
+    list->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(list, &QListWidget::customContextMenuRequested, this,
+            [this, list](const QPoint& pos) {
+        auto* item = list->itemAt(pos);
+        if (!item) return;
+        const QString path = item->data(Qt::UserRole).toString();
+        const QFileInfo fi(path);
+
+        QMenu menu(this);
+        menu.setStyleSheet("QMenu { font-size: 11px; }");
+
+        auto* actOpen = menu.addAction(QIcon::fromTheme("document-open"), tr("📂  Abrir"));
+        connect(actOpen, &QAction::triggered, this, [this, path]() { openPath(path); });
+
+        if (fi.isFile()) {
+            auto* actFolder = menu.addAction(QIcon::fromTheme("folder"), tr("📁  Abrir pasta que contém"));
+            connect(actFolder, &QAction::triggered, this, [this, path]() { openContainingFolder(path); });
+        }
+
+        menu.addSeparator();
+
+        auto* actCopy = menu.addAction(QIcon::fromTheme("edit-copy"), tr("⎘  Copiar caminho"));
+        connect(actCopy, &QAction::triggered, this, [path]() {
+            QApplication::clipboard()->setText(path);
+        });
+
+        menu.addSeparator();
+
+        // Submenu "Abrir com"
+        auto* subWith = menu.addMenu(QIcon::fromTheme("system-run"), tr("🖥  Abrir com..."));
+        const QStringList apps = suggestAppsForPath(path);
+        for (const QString& app : apps) {
+            auto* act = subWith->addAction(app);
+            connect(act, &QAction::triggered, this, [this, path, app]() {
+                openWithApp(path, app);
+            });
+        }
+        if (!apps.isEmpty()) subWith->addSeparator();
+        auto* actCustom = subWith->addAction(tr("Outro aplicativo..."));
+        connect(actCustom, &QAction::triggered, this, [this, path]() { openWith(path); });
+
+        menu.exec(list->viewport()->mapToGlobal(pos));
+    });
+}
+
+// ─── Abrir com app específico ──────────────────────────────────────────────────
+
+void LinksPanelWidget::openWithApp(const QString& path, const QString& app)
+{
+    if (!QProcess::startDetached(app, {path})) {
+        QMessageBox::warning(this, tr("Erro"),
+            tr("Não foi possível abrir '%1' com '%2'.").arg(path, app));
+    }
+}
+
+void LinksPanelWidget::openWith(const QString& path)
+{
+    QSettings s("CfdmNote", "CfdmNote");
+    const QFileInfo fi(path);
+    const QString extKey = "openwith/" + fi.suffix().toLower();
+    const QString lastApp = s.value(extKey).toString();
+
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("Abrir com..."));
+    dlg.resize(360, 200);
+    auto* lay = new QVBoxLayout(&dlg);
+
+    lay->addWidget(new QLabel(tr("<b>Arquivo:</b> %1").arg(fi.fileName())));
+
+    // Sugestões
+    const QStringList apps = suggestAppsForPath(path);
+    auto* listApps = new QListWidget();
+    listApps->setFixedHeight(90);
+    listApps->setStyleSheet("font-size:11px;");
+    for (const QString& a : apps)
+        listApps->addItem(a);
+    if (!apps.isEmpty()) lay->addWidget(new QLabel(tr("Apps detectados:")));
+    if (!apps.isEmpty()) lay->addWidget(listApps);
+
+    lay->addWidget(new QLabel(tr("Ou digite o comando:")));
+    auto* lineEdit = new QLineEdit(lastApp);
+    lineEdit->setPlaceholderText("ex: vlc, gimp, code ...");
+    lay->addWidget(lineEdit);
+
+    // Clique em item da lista preenche o campo
+    connect(listApps, &QListWidget::itemClicked, this, [lineEdit](QListWidgetItem* item) {
+        lineEdit->setText(item->text());
+    });
+
+    auto* btns = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    lay->addWidget(btns);
+    connect(btns, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(btns, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    if (dlg.exec() != QDialog::Accepted) return;
+
+    const QString cmd = lineEdit->text().trimmed();
+    if (cmd.isEmpty()) return;
+
+    s.setValue(extKey, cmd);
+    openWithApp(path, cmd);
+}
+
+// ─── Abrir pasta que contém ────────────────────────────────────────────────────
+
+void LinksPanelWidget::openContainingFolder(const QString& path)
+{
+    const QFileInfo fi(path);
+    const QString dir = fi.isFile() ? fi.dir().absolutePath() : path;
+    QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
 }
 
 // ─── Abrir pasta ──────────────────────────────────────────────────────────────

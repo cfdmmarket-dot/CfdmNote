@@ -53,8 +53,14 @@ private:
     void refreshItemIcons(QListWidget* list);
     void saveLinks();
     void openPath(const QString& path);
+    void openContainingFolder(const QString& path);
+    void openWith(const QString& path);
+    void openWithApp(const QString& path, const QString& app);
+    void setupContextMenu(QListWidget* list);
     void addPathToList(QListWidget* list, const QString& typeKey);
     void addFileToList(QListWidget* list, const QString& typeKey);
+
+    static QStringList suggestAppsForPath(const QString& path);
 
     QListWidget* m_localList     = nullptr;
     QPushButton* m_btnAddLocal   = nullptr;

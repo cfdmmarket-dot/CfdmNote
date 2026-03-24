@@ -1,5 +1,5 @@
 # CfdmNote — Manual de Consulta
-**Versão 2.4.2** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
+**Versão 2.4.3** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
 
 > 💡 **Como saber se o manual está atualizado:** a versão acima deve coincidir com a versão exibida na tela de login. Se for diferente, o manual está desatualizado para essa release.
 
@@ -35,6 +35,8 @@
 26. [Assistente de Voz](#26-assistente-de-voz)
 27. [Verificador de Dependências](#27-verificador-de-dependências)
 28. [Descoberta e CLI de Banco de Dados](#28-descoberta-e-cli-de-banco-de-dados)
+29. [Lista Completa de Funcionalidades](#29-lista-completa-de-funcionalidades)
+30. [Aba Links — Abrir com Programa](#30-aba-links--abrir-com-programa)
 
 ---
 
@@ -905,5 +907,102 @@ docker run -v /home/usuario/banco.kdbx:/data/banco.kdbx cfdmnote \
 
 ---
 
-*CfdmNote v2.4.2 — Desenvolvido por CFDM*
+## 29. Lista Completa de Funcionalidades
+
+Todas as funcionalidades implementadas, organizadas por versão. Atualize esta seção sempre que uma feature nova for adicionada.
+
+| Versão | Funcionalidade | Atalho |
+|--------|---------------|--------|
+| v1.0.x | Base KeePassXC compilável + branding CfdmNote | — |
+| v1.1.0 | Banco principal auto-open (sem senha) | — |
+| v1.1.0 | AppLockDialog — tela de login com senha | — |
+| v1.1.0 | Recuperação por perguntas secretas | — |
+| v1.1.0 | Importar CSV com barra de progresso | — |
+| v1.2.0 | Lixeira dedicada fora da árvore de grupos | — |
+| v1.2.0 | Ícone personalizado por entrada (PNG/GIF) | — |
+| v1.2.0 | Aba "Notas" integrada no preview de entrada | Ctrl+F9 |
+| v1.2.0 | GIF animado na aba Notas | — |
+| v1.2.0 | Aba "Links" — Local Disk + Removable | — |
+| v1.2.1 | Backup Externo para mídia removível | Ctrl+Shift+B |
+| v1.3.0 | Campo "Comentário" rápido por entrada | — |
+| v1.3.0 | Importar TXT (título = nome do arquivo) | — |
+| v1.3.0 | Links: suporte a arquivos além de pastas | — |
+| v1.4.0 | Pesquisar na web (Google/DuckDuckGo/etc.) | — |
+| v1.4.0 | Exportar nota criptografada AES-256-GCM | — |
+| v1.4.0 | Compartilhar via WhatsApp/Telegram/Discord | — |
+| v1.5.0 | Lembretes por entrada com recorrência | Ctrl+Shift+R |
+| v1.5.0 | Google Calendar integrado nos lembretes | — |
+| v1.6.0 | Manual de Consulta integrado | F1 |
+| v1.7.0 | Informações dos Bancos (tamanho, entradas, datas) | Ctrl+Shift+I |
+| v1.7.1 | Fix: painel Notas/Links nunca colapsa | — |
+| v1.7.2 | Handle do splitter melhorado | — |
+| v1.8.0 | Pesquisa Poderosa: local, web, Dorking, VirusTotal | Ctrl+Shift+F |
+| v1.8.1 | Botão "🤖 IA" na toolbar com menu | — |
+| v1.8.1 | Tooltip rico nas entradas (hover) | — |
+| v1.9.0 | Capturar Áudio e transcrever com Whisper | Ctrl+Shift+A |
+| v1.9.1 | Tradução de notas via LibreTranslate | Ctrl+Shift+T |
+| v1.9.1 | Pesquisar contexto da nota (palavras-chave automáticas) | — |
+| v1.9.2 | ToastNotification — popup flutuante com barra regressiva | — |
+| v2.0.0 | Seletor de navegador privado (Brave/LibreWolf/etc.) | — |
+| v2.0.0 | Aba "📈 Em Alta" — 36 atalhos de tendências | — |
+| v2.1.0 | Trending expandido: 13 regiões do mundo | — |
+| v2.1.0 | Aba "🔗 Relacionados" — entradas com mesmo domínio | — |
+| v2.1.0 | Aba "⏰ Lembrete" compacta no preview | — |
+| v2.1.0 | Versão exibida na tela de login | — |
+| v2.2.0 | Mapa Mental interativo (Mind Elixir) | — |
+| v2.2.0 | Kanban/Roadmap 4 colunas | — |
+| v2.2.0 | Quadro Branco (Whiteboard) com sticky notes | — |
+| v2.2.0 | Tema SteelBlue + NavyBlue toolbar | — |
+| v2.2.0 | Criar Grupo com seletor de pai | Ctrl+Shift+G |
+| v2.2.4 | Mover Grupo com validação de ciclo | — |
+| v2.3.x | Descoberta automática de bancos na máquina | — |
+| v2.3.x | Argumento CLI `--database /caminho` | — |
+| v2.4.0 | Assistente de Voz (criar entrada/grupo/nota por voz) | Ctrl+Shift+V |
+| v2.4.2 | Verificador de Dependências no startup | — |
+| **v2.4.3** | **Aba Links — Abrir com programa (context menu)** | **clique dir.** |
+
+> 💡 Esta tabela é atualizada a cada nova funcionalidade. A versão no cabeçalho deste manual confirma que está sincronizado com a release atual.
+
+---
+
+## 30. Aba Links — Abrir com Programa
+
+A aba **Links** agora suporta "Abrir com" para arquivos e pastas cadastrados.
+
+### Como usar
+1. Vá para a aba **Links** de qualquer entrada
+2. Clique com o **botão direito** sobre um item da lista
+3. O menu de contexto oferece:
+
+| Opção | Ação |
+|-------|------|
+| 📂 Abrir | Abre com o programa padrão do sistema |
+| 📁 Abrir pasta que contém | Abre o gerenciador de arquivos na pasta pai (só para arquivos) |
+| ⎘ Copiar caminho | Copia o caminho completo para a área de transferência |
+| 🖥 Abrir com... → `vlc` | Abre diretamente com o app detectado |
+| 🖥 Abrir com... → Outro aplicativo... | Permite digitar o comando desejado |
+
+### Apps detectados automaticamente
+O CfdmNote detecta apps instalados na máquina conforme a extensão do arquivo:
+
+| Extensão | Apps detectados |
+|----------|----------------|
+| `.pdf` | evince, okular, zathura |
+| `.doc/.docx` | libreoffice, wps |
+| `.mp4/.mkv` | vlc, mpv, totem |
+| `.mp3/.flac` | vlc, mpv, rhythmbox |
+| `.jpg/.png` | eog, gimp, shotwell |
+| `.txt/.md` | gedit, kate, mousepad |
+| `.py` | gedit, spyder, thonny |
+| `.zip/.tar` | file-roller, ark |
+
+### Lembrar o app por extensão
+Quando você escolhe "Outro aplicativo..." e confirma, o app escolhido é **lembrado** para aquela extensão. Na próxima vez, ele aparece na lista de sugestões.
+
+### Dica: Duplo clique
+O duplo clique continua funcionando como antes — abre com o programa padrão do sistema (`xdg-open`).
+
+---
+
+*CfdmNote v2.4.3 — Desenvolvido por CFDM*
 *Manual atualizado em 2026-03-24*
