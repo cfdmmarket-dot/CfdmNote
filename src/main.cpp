@@ -84,6 +84,7 @@
 #include "gui/VoiceCommandDialog.h"
 #include "gui/DependencyCheckDialog.h"
 #include "gui/GlossaryDialog.h"
+#include "gui/MergeGroupDialog.h"
 #include "notes/NoteManager.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
@@ -1120,6 +1121,20 @@ int main(int argc, char* argv[])
 
         dlg.exec();
     });
+
+    // Importar Grupo de outro banco (merge entre .kdbx abertos)
+    {
+        QAction* actMerge = cfdmMenu->addAction(
+            QIcon::fromTheme("document-import"),
+            QObject::tr("📥 Importar Grupo entre Bancos..."));
+        actMerge->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_M));
+        actMerge->setToolTip(QObject::tr(
+            "Copia um grupo (com todos os subgrupos e entradas) de um banco .kdbx aberto para outro."));
+        QObject::connect(actMerge, &QAction::triggered, [&mainWindow]() {
+            auto* tabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+            MergeGroupDialog::show(tabWidget, &mainWindow);
+        });
+    }
 
     // Importar CSV (com barra de progresso real)
     QAction* actImportCsv = cfdmMenu->addAction(

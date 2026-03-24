@@ -383,6 +383,25 @@
 
 ---
 
+## Sessão 20 — Importar Grupo entre Bancos (v2.5.1)
+**Data:** 2026-03-24
+**Versão:** v2.5.1
+
+### Feature: Merge/Import de grupos entre .kdbx
+- `MergeGroupDialog`: seletor de banco origem + seletor de banco destino (qualquer par de bancos abertos)
+- Árvore de grupos em ambos os lados com contagem de entradas e subgrupos
+- `Group::clone(Entry::CloneDefault, Group::CloneDefault)` → clone recursivo completo com novos UUIDs
+- `cloned->setParent(dest)` insere no banco de destino
+- Banco de destino salvo automaticamente após import
+- Conta entradas/subgrupos antes da confirmação para dar visibilidade ao usuário
+- Atalho: `Ctrl+Shift+M` | Menu CfdmNote → "📥 Importar Grupo entre Bancos..."
+- MANUAL.md seção 32
+
+### Clarificação ao usuário
+O banco principal do CfdmNote usa `.kdbx` (mesmo formato KeePassXC, senha vazia). O `.ksdb` é arquivo SQLite separado só para notas/glossário. O merge funciona entre qualquer `.kdbx`.
+
+---
+
 ## Sessão 19 — Seção do Saber: Glossário Pessoal (v2.5.0)
 **Data:** 2026-03-24
 **Versão:** v2.5.0

@@ -1,5 +1,5 @@
 # CfdmNote — Manual de Consulta
-**Versão 2.5.0** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
+**Versão 2.5.1** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
 
 > 💡 **Como saber se o manual está atualizado:** a versão acima deve coincidir com a versão exibida na tela de login. Se for diferente, o manual está desatualizado para essa release.
 
@@ -38,6 +38,7 @@
 29. [Lista Completa de Funcionalidades](#29-lista-completa-de-funcionalidades)
 30. [Aba Links — Abrir com Programa](#30-aba-links--abrir-com-programa)
 31. [Seção do Saber — Glossário Pessoal](#31-seção-do-saber--glossário-pessoal)
+32. [Importar Grupo entre Bancos](#32-importar-grupo-entre-bancos)
 
 ---
 
@@ -963,7 +964,8 @@ Todas as funcionalidades implementadas, organizadas por versão. Atualize esta s
 | v2.4.3 | Aba Links — Abrir com programa (context menu) | clique dir. |
 | v2.4.4 | Fix: whisper-cli ✅ quando openai-whisper está instalado | — |
 | v2.4.5 | Fix: transcrição de áudio — detecta ~/.local/bin/whisper, feedback em tempo real | — |
-| **v2.5.0** | **Seção do Saber — Glossário pessoal (Ctrl+Shift+K)** | **Ctrl+Shift+K** |
+| v2.5.0 | Seção do Saber — Glossário pessoal (Ctrl+Shift+K) | Ctrl+Shift+K |
+| **v2.5.1** | **Importar Grupo entre Bancos .kdbx — merge recursivo completo** | **Ctrl+Shift+M** |
 
 > 💡 Esta tabela é atualizada a cada nova funcionalidade. A versão no cabeçalho deste manual confirma que está sincronizado com a release atual.
 
@@ -1059,5 +1061,42 @@ Os termos ficam na tabela `glossary` do banco `.ksdb` (SQLite local). Não depen
 
 ---
 
-*CfdmNote v2.5.0 — Desenvolvido por CFDM*
+---
+
+## 32. Importar Grupo entre Bancos
+
+Copia um grupo completo (com todos os subgrupos e entradas) de qualquer banco `.kdbx` aberto para outro.
+
+**Abrir:** Menu CfdmNote → 📥 Importar Grupo entre Bancos... · Atalho: `Ctrl+Shift+M`
+
+### Como usar
+
+1. **Abra os dois bancos** no CfdmNote (Arquivo → Abrir banco de dados, ou Abrir Cofre)
+2. Acesse **Menu CfdmNote → 📥 Importar Grupo entre Bancos...**
+3. Selecione o **banco de origem** (dropdown superior esquerdo)
+4. Clique no **grupo a importar** na árvore da esquerda — ex: "CFDM-Holding"
+5. Selecione o **banco de destino** (dropdown superior direito)
+6. Clique no **grupo de destino** na árvore da direita — ex: a raiz do banco principal
+7. Clique **📥 Importar Grupo Completo**
+
+### O que é copiado
+
+| Item | Comportamento |
+|------|---------------|
+| Grupo selecionado | Copiado com nome, ícone e notas do grupo |
+| Subgrupos (todos os níveis) | Copiados recursivamente |
+| Entradas de cada grupo | Copiadas com título, usuário, senha, URL, notas, campos personalizados |
+| IDs (UUIDs) | **Novos IDs gerados** — sem conflito com entradas existentes |
+| Banco de destino | Salvo automaticamente após a importação |
+
+### Notas importantes
+
+- **Ambos os bancos devem estar abertos** nas abas do CfdmNote antes de abrir o dialog
+- O banco do CfdmNote usa `.kdbx` — é o mesmo formato do KeePassXC
+- A operação **não remove** o grupo do banco de origem
+- Funciona entre **qualquer par** de bancos abertos (não só para o banco principal)
+
+---
+
+*CfdmNote v2.5.1 — Desenvolvido por CFDM*
 *Manual atualizado em 2026-03-24*
