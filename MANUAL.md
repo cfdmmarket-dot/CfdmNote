@@ -1,5 +1,5 @@
 # CfdmNote — Manual de Consulta
-**Versão 2.4.3** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
+**Versão 2.4.4** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
 
 > 💡 **Como saber se o manual está atualizado:** a versão acima deve coincidir com a versão exibida na tela de login. Se for diferente, o manual está desatualizado para essa release.
 
@@ -959,7 +959,8 @@ Todas as funcionalidades implementadas, organizadas por versão. Atualize esta s
 | v2.3.x | Argumento CLI `--database /caminho` | — |
 | v2.4.0 | Assistente de Voz (criar entrada/grupo/nota por voz) | Ctrl+Shift+V |
 | v2.4.2 | Verificador de Dependências no startup | — |
-| **v2.4.3** | **Aba Links — Abrir com programa (context menu)** | **clique dir.** |
+| v2.4.3 | Aba Links — Abrir com programa (context menu) | clique dir. |
+| **v2.4.4** | **Fix: whisper-cli ✅ quando openai-whisper está instalado** | **—** |
 
 > 💡 Esta tabela é atualizada a cada nova funcionalidade. A versão no cabeçalho deste manual confirma que está sincronizado com a release atual.
 
@@ -1004,5 +1005,5 @@ O duplo clique continua funcionando como antes — abre com o programa padrão d
 
 ---
 
-*CfdmNote v2.4.3 — Desenvolvido por CFDM*
+*CfdmNote v2.4.4 — Desenvolvido por CFDM*
 *Manual atualizado em 2026-03-24*
