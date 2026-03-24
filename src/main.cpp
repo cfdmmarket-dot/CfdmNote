@@ -43,6 +43,8 @@
 #include <QCursor>
 #include <QSet>
 #include <QMap>
+#include <QDialog>
+#include <QListWidget>
 
 #include "core/Metadata.h"
 #include "core/EntryAttributes.h"
@@ -1825,19 +1827,78 @@ int main(int argc, char* argv[])
         });
     });
 
-    // ── Abre banco principal (sem senha) → substitui a tela de boas-vendas ──
-    // O cofre criptografado só abre quando invocado pelo menu CfdmNote
+    // ── Argumento de linha de comando: --database /caminho/banco.kdbx ────────
+    {
+        const QStringList args = app.arguments();
+        const int dbIdx = args.indexOf("--database");
+        if (dbIdx != -1 && dbIdx + 1 < args.size()) {
+            const QString cliPath = args.at(dbIdx + 1);
+            if (QFile::exists(cliPath)) {
+                MainDatabaseManager::setConfiguredPath(cliPath);
+            } else {
+                QMessageBox::warning(&mainWindow,
+                    QObject::tr("Banco não encontrado"),
+                    QObject::tr("O arquivo indicado em --database não foi encontrado:\n%1").arg(cliPath));
+            }
+        }
+    }
+
+    // ── Descoberta automática se banco configurado não existir ────────────────
+    {
+        const QString cfgPath = MainDatabaseManager::configuredPath();
+        const bool isDefault  = (cfgPath == MainDatabaseManager::defaultDatabasePath());
+        if (!QFile::exists(cfgPath) || isDefault) {
+            // Varre a máquina por bancos existentes (excluindo o caminho padrão vazio)
+            const QStringList found = MainDatabaseManager::discoverOnMachine();
+            // Filtra para não sugerir o próprio banco padrão vazio
+            QStringList candidates;
+            for (const QString& f : found)
+                if (f != MainDatabaseManager::defaultDatabasePath())
+                    candidates << f;
+
+            if (!candidates.isEmpty()) {
+                // Mostra picker simples
+                auto* picker = new QDialog(&mainWindow);
+                picker->setWindowTitle(QObject::tr("Bancos encontrados na máquina"));
+                picker->resize(600, 320);
+                auto* lay = new QVBoxLayout(picker);
+                lay->addWidget(new QLabel(
+                    QObject::tr("Encontramos bancos de dados na sua máquina.\n"
+                                "Selecione um para abrir, ou clique em Novo para criar um banco limpo:")));
+                auto* list = new QListWidget(picker);
+                list->addItems(candidates);
+                list->setCurrentRow(0);
+                lay->addWidget(list);
+                auto* btnRow = new QHBoxLayout();
+                auto* btnOpen = new QPushButton(QObject::tr("Abrir selecionado"));
+                auto* btnNew  = new QPushButton(QObject::tr("Criar novo banco"));
+                auto* btnSkip = new QPushButton(QObject::tr("Perguntar depois"));
+                btnRow->addWidget(btnOpen);
+                btnRow->addWidget(btnNew);
+                btnRow->addStretch();
+                btnRow->addWidget(btnSkip);
+                lay->addLayout(btnRow);
+                QObject::connect(btnOpen, &QPushButton::clicked, picker, [picker, list]() {
+                    if (list->currentItem())
+                        MainDatabaseManager::setConfiguredPath(list->currentItem()->text());
+                    picker->accept();
+                });
+                QObject::connect(btnNew, &QPushButton::clicked, picker, [picker]() {
+                    // Volta ao banco padrão (será criado em createIfNeeded)
+                    MainDatabaseManager::setConfiguredPath(MainDatabaseManager::defaultDatabasePath());
+                    picker->accept();
+                });
+                QObject::connect(btnSkip, &QPushButton::clicked, picker, &QDialog::reject);
+                picker->exec();
+                picker->deleteLater();
+            }
+        }
+    }
+
+    // ── Abre banco principal (sem senha) → substitui a tela de boas-vindas ───
     QTimer::singleShot(100, &mainWindow, [&mainWindow]() {
         MainDatabaseManager::openInMainWindow(&mainWindow);
     });
-
-    // Abre arquivo passado como argumento
-    const QStringList cliArgs = app.arguments();
-    if (cliArgs.size() > 1) {
-        const QString path = cliArgs.last();
-        if (QFile::exists(path))
-            mainWindow.openDatabase(path);
-    }
 
     return app.exec();
 }

@@ -2,6 +2,7 @@
 
 #include <QStandardPaths>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QUuid>
@@ -12,6 +13,7 @@
 #include <QPushButton>
 #include <QIcon>
 #include <QLabel>
+#include <QSettings>
 
 #include "core/Database.h"
 #include "core/Group.h"
@@ -109,6 +111,69 @@ QString MainDatabaseManager::defaultDatabasePath()
     return dataDir + "/main.kdbx";
 }
 
+QString MainDatabaseManager::configuredPath()
+{
+    QSettings s("CfdmNote", "CfdmNote");
+    const QString saved = s.value("database/path").toString();
+    if (!saved.isEmpty() && QFile::exists(saved))
+        return saved;
+    return defaultDatabasePath();
+}
+
+void MainDatabaseManager::setConfiguredPath(const QString& path)
+{
+    QSettings s("CfdmNote", "CfdmNote");
+    s.setValue("database/path", path);
+}
+
+QStringList MainDatabaseManager::discoverOnMachine()
+{
+    QStringList found;
+    const QString home = QDir::homePath();
+
+    // Locais prioritários a varrer (não-recursivo para ser rápido)
+    QStringList roots = {
+        home,
+        home + "/Documentos",
+        home + "/Documents",
+        home + "/Desktop",
+        home + "/Área de Trabalho",
+        home + "/Dropbox",
+        home + "/OneDrive",
+        home + "/Google Drive",
+        home + "/Drive",
+        home + "/Sync",
+        home + "/NextCloud",
+        home + "/ownCloud",
+    };
+
+    // Mídias removíveis / pendrives
+    const QString mediaBase = "/media/" + qgetenv("USER");
+    for (const QString& vol : QDir(mediaBase).entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+        roots << mediaBase + "/" + vol;
+    // Também /run/media
+    const QString runMedia = "/run/media/" + qgetenv("USER");
+    for (const QString& vol : QDir(runMedia).entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+        roots << runMedia + "/" + vol;
+
+    const QStringList filters = {"*.kdbx", "*.ksdb"};
+    QSet<QString> seen;
+
+    for (const QString& root : roots) {
+        if (!QDir(root).exists()) continue;
+        QDirIterator it(root, filters,
+                        QDir::Files | QDir::Readable,
+                        QDirIterator::Subdirectories);
+        int limit = 0;
+        while (it.hasNext() && limit < 50) {
+            const QString f = it.next();
+            if (!seen.contains(f)) { seen.insert(f); found << f; }
+            ++limit;
+        }
+    }
+    return found;
+}
+
 bool MainDatabaseManager::createIfNeeded()
 {
     const QString path = defaultDatabasePath();
@@ -200,9 +265,10 @@ QSharedPointer<Database> MainDatabaseManager::openDatabase(const QString& path, 
 
 bool MainDatabaseManager::openInMainWindow(MainWindow* mainWindow)
 {
-    const QString path = defaultDatabasePath();
+    const QString path = configuredPath();
 
-    if (!createIfNeeded()) return false;
+    // Só cria banco novo se for o caminho padrão (não queremos criar no path do usuário)
+    if (path == defaultDatabasePath() && !createIfNeeded()) return false;
 
     QString error;
     auto db = openDatabase(path, &error);

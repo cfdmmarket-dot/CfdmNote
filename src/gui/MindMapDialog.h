@@ -19,7 +19,7 @@ public:
 
 private:
     QString buildJson() const;
-    QString groupToJson(Group* g, int colorIdx) const;
+    QString groupToJson(Group* g, int colorIdx, int depth, const QString& prefix) const;
     void    injectMap();
     void    updateDetail(const QString& id, const QString& topic, const QString& type);
 
@@ -29,6 +29,7 @@ private:
     QLabel*         m_detailTitle;
     QLabel*         m_detailSub;
     QLabel*         m_detailBody;
+    QLabel*         m_detailPath;
     bool            m_mapLoaded = false;
     QString         m_tmpHtmlPath;
 };

@@ -82,9 +82,42 @@ function initMindMap(data) {
     });
     mind.init(data);
 
+    // Desativa pan interno do Mind Elixir (helper1/helper2 + edgeMoveController)
+    // Usamos nosso próprio pan via mousedown/mousemove
+    try {
+      if (mind.helper1 && typeof mind.helper1.destroy === 'function') mind.helper1.destroy();
+      if (mind.helper2 && typeof mind.helper2.destroy === 'function') mind.helper2.destroy();
+      mind.helper1 = null; mind.helper2 = null;
+    } catch(err) {}
+    try {
+      if (mind.edgeMoveController) {
+        if (typeof mind.edgeMoveController.stop === 'function') mind.edgeMoveController.stop();
+        mind.edgeMoveController = { stop:function(){}, clear:function(){}, move:function(){}, on:function(){} };
+      }
+    } catch(err) {}
+
     setTimeout(function() {
       if (mind && typeof mind.toCenter === 'function') mind.toCenter();
     }, 150);
+
+    // Aplica tooltip com número hierárquico em cada nó (visível ao passar o mouse)
+    setTimeout(function() {
+      function applyNumTooltips(node) {
+        if (!node) return;
+        if (node.num) {
+          try {
+            var el = mind.findEle(node.id);
+            if (el) {
+              var tpc = el.querySelector ? el.querySelector('me-tpc') : null;
+              if (!tpc && el.tagName === 'ME-TPC') tpc = el;
+              if (tpc) tpc.title = node.num + '  ' + node.topic;
+            }
+          } catch(e2) {}
+        }
+        if (node.children) node.children.forEach(applyNumTooltips);
+      }
+      if (mind && mind.nodeData) applyNumTooltips(mind.nodeData);
+    }, 300);
 
     if (mind.bus && typeof mind.bus.addListener === 'function') {
       mind.bus.addListener('selectNode', function(node) {
@@ -144,6 +177,15 @@ function setLayout(dir) {
     toolBar: false, nodeMenu: false, keypress: false
   });
   mind.init(currentData);
+  try {
+    if (mind.helper1 && typeof mind.helper1.destroy === 'function') mind.helper1.destroy();
+    if (mind.helper2 && typeof mind.helper2.destroy === 'function') mind.helper2.destroy();
+    mind.helper1 = null; mind.helper2 = null;
+    if (mind.edgeMoveController) {
+      if (typeof mind.edgeMoveController.stop === 'function') mind.edgeMoveController.stop();
+      mind.edgeMoveController = { stop:function(){}, clear:function(){}, move:function(){}, on:function(){} };
+    }
+  } catch(err) {}
   setTimeout(function() { if (mind && mind.toCenter) mind.toCenter(); }, 150);
 }
 
@@ -163,6 +205,16 @@ function isMapNode(el) {
   }
   return null;
 }
+
+// ── Bloqueia pointer events do Mind Elixir (drag interno + edge detection) ────
+// ME v5 usa pointerdown/pointermove/pointerup para arrastar nós e detectar bordas.
+// Nossos handlers usam mouseevents. Bloqueamos pointer events para que ME nunca
+// ative seu drag/edgeMoveController. O "click" continua funcionando (é evento separado).
+;(function() {
+  ['pointerdown','pointermove','pointerup','pointercancel'].forEach(function(evt) {
+    document.addEventListener(evt, function(e) { e.stopPropagation(); }, true);
+  });
+})();
 
 // ── Pan do fundo (mousedown/mousemove no background) ──────────────────────────
 (function() {
@@ -184,7 +236,7 @@ function isMapNode(el) {
   document.addEventListener('mousemove', function(e) {
     if (!panning || !mind || !mind.map) return;
     var dx = e.clientX - sx, dy = e.clientY - sy;
-    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
     sx = e.clientX; sy = e.clientY;
     panMoved = true;
     document.body.style.cursor = 'grabbing';
@@ -204,42 +256,103 @@ function isMapNode(el) {
   }, true);
 })();
 
-// ── Drag de nós via pointer events sintéticos ─────────────────────────────────
-// O Mind Elixir usa pointerdown/pointermove/pointerup — simulamos a partir do mouse
-(function() {
-  var draggingNode = null;
+// ── Drag livre de nós + Undo ───────────────────────────────────────────────────
+var undoStack = [];
 
-  function syntheticPointer(type, target, e) {
-    try {
-      var pe = new PointerEvent(type, {
-        bubbles: true, cancelable: true,
-        clientX: e.clientX, clientY: e.clientY,
-        pointerId: 1, pointerType: 'mouse',
-        button: e.button, buttons: e.buttons,
-        isPrimary: true
-      });
-      target.dispatchEvent(pe);
-    } catch(err) {}
+function undoNodeMove() {
+  if (!undoStack.length) return;
+  var last = undoStack.pop();
+  last.el.style.left = last.ox + 'px';
+  last.el.style.top  = last.oy + 'px';
+  if (mind && typeof mind.linkDiv === 'function')
+    setTimeout(function() { mind.linkDiv(); }, 0);
+}
+
+(function() {
+  var dragEl = null;
+  var sx = 0, sy = 0;
+  var ox = 0, oy = 0;        // posição original (antes do drag)
+  var hasMoved = false;
+
+  function getWrapper(el) {
+    // Sobe pelo DOM até encontrar me-tpc, me-parent ou me-wrapper
+    while (el && el !== document.body) {
+      var tag = el.tagName;
+      if (tag === 'ME-TPC') {
+        // me-tpc → me-parent → me-wrapper
+        var p = el.parentElement;
+        var w = p && p.parentElement;
+        return (w && w.tagName === 'ME-WRAPPER') ? w : (p || el);
+      }
+      if (tag === 'ME-PARENT') {
+        var w = el.parentElement;
+        return (w && w.tagName === 'ME-WRAPPER') ? w : el;
+      }
+      if (tag === 'ME-WRAPPER') {
+        // Só arrasta se não for o contêiner raiz (me-main, me-root)
+        var parent = el.parentElement;
+        if (parent && (parent.tagName === 'ME-CHILDREN' || parent.tagName === 'ME-MAIN'))
+          return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
   }
 
   document.addEventListener('mousedown', function(e) {
     if (e.button !== 0) return;
-    var node = isMapNode(e.target);
-    if (!node) return;
-    draggingNode = node;
-    syntheticPointer('pointerdown', node, e);
+    var w = getWrapper(e.target);
+    if (!w) return;
+    dragEl = w;
+    sx = e.clientX; sy = e.clientY;
+    ox = parseFloat(dragEl.style.left) || 0;
+    oy = parseFloat(dragEl.style.top)  || 0;
+    hasMoved = false;
+    dragEl.style.position = 'relative';
+    dragEl.style.zIndex   = '999';
+    e.stopPropagation();
+    e.preventDefault();
   }, true);
 
+  var rafPending = false;
   document.addEventListener('mousemove', function(e) {
-    if (!draggingNode) return;
-    syntheticPointer('pointermove', draggingNode, e);
+    if (!dragEl) return;
+    var nx = ox + (e.clientX - sx);
+    var ny = oy + (e.clientY - sy);
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(function() {
+        if (dragEl) {
+          dragEl.style.left = nx + 'px';
+          dragEl.style.top  = ny + 'px';
+          hasMoved = true;
+          if (mind && typeof mind.linkDiv === 'function') mind.linkDiv();
+        }
+        rafPending = false;
+      });
+    }
+    e.stopPropagation();
+    e.preventDefault();
   }, true);
 
-  document.addEventListener('mouseup', function(e) {
-    if (!draggingNode) return;
-    syntheticPointer('pointerup', draggingNode, e);
-    draggingNode = null;
+  document.addEventListener('mouseup', function() {
+    if (!dragEl) return;
+    dragEl.style.zIndex = '';
+    if (hasMoved) {
+      // Só guarda no undo se o nó realmente se moveu
+      undoStack.push({ el: dragEl, ox: ox, oy: oy });
+      if (undoStack.length > 50) undoStack.shift();
+      if (mind && typeof mind.linkDiv === 'function')
+        setTimeout(function() { mind.linkDiv(); }, 0);
+    }
+    dragEl = null;
+    hasMoved = false;
   }, true);
+
+  // Ctrl+Z desfaz último movimento
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && (e.key === 'z' || e.key === 'Z')) undoNodeMove();
+  });
 })();
 </script>
 </body>

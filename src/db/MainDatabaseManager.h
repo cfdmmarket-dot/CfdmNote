@@ -17,10 +17,17 @@ class MainWindow;
 class MainDatabaseManager
 {
 public:
-    // Retorna o caminho padrão do banco principal
+    // Caminho padrão interno (AppLocalData/main.kdbx)
     static QString defaultDatabasePath();
 
-    // Cria o banco principal se não existir (primeira vez)
+    // Caminho configurado pelo usuário (QSettings); cai no padrão se não definido
+    static QString configuredPath();
+    static void    setConfiguredPath(const QString& path);
+
+    // Varre locais comuns da máquina por arquivos .kdbx/.ksdb
+    static QStringList discoverOnMachine();
+
+    // Cria o banco principal no caminho configurado, se não existir
     static bool createIfNeeded();
 
     // Abre o banco principal na MainWindow (auto-unlock, sem diálogo de senha)

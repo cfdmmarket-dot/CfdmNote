@@ -62,12 +62,18 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     auto* actExport  = bar->addAction("💾 PNG");
     bar->addSeparator();
 
+    auto* actUndo        = bar->addAction("↩ Desfazer");
+    auto* actDetail      = bar->addAction("📋 Detalhes");
+    actDetail->setCheckable(true);
+    actDetail->setChecked(true);
+    actDetail->setShortcut(QKeySequence("D"));
+    bar->addSeparator();
     auto* actLayoutBoth  = bar->addAction("↔ Lateral");
     auto* actLayoutRight = bar->addAction("→ Direita");
     auto* actLayoutLeft  = bar->addAction("← Esquerda");
     bar->addSeparator();
 
-    m_chkEntries = new QCheckBox(tr("Mostrar entradas"));
+    m_chkEntries = new QCheckBox(tr("Entradas"));
     m_chkEntries->setChecked(false);
     bar->addWidget(m_chkEntries);
 
@@ -165,6 +171,14 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
     m_detailBody->setStyleSheet("font-size:11px; color:#1a202c; background:#f7faff; "
                                 "border:1px solid #bee3f8; border-radius:4px; padding:6px;");
     pLay->addWidget(m_detailBody);
+
+    m_detailPath = new QLabel();
+    m_detailPath->setWordWrap(true);
+    m_detailPath->setStyleSheet("font-size:10px; color:#2b6cb0; background:#ebf8ff; "
+                                "border:1px solid #90cdf4; border-radius:4px; padding:5px 6px; "
+                                "font-family:monospace;");
+    m_detailPath->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    pLay->addWidget(m_detailPath);
     pLay->addStretch();
 
     for (const auto& s : {tr("🖱 Scroll = zoom"),
@@ -205,6 +219,19 @@ MindMapDialog::MindMapDialog(QSharedPointer<Database> db, QWidget* parent)
         if (path.isEmpty()) return;
         m_webView->grab().save(path, "PNG");
         QMessageBox::information(this, tr("Exportado"), tr("Salvo em:\n%1").arg(path));
+    });
+
+    connect(actUndo, &QAction::triggered, this, [this]() {
+        m_webView->page()->runJavaScript("undoNodeMove();");
+    });
+
+    connect(actDetail, &QAction::toggled, this, [this, actDetail](bool on) {
+        // Encontra o painel lateral (segundo widget do splitter)
+        auto* sp = qobject_cast<QSplitter*>(m_webView->parentWidget());
+        if (sp && sp->count() >= 2) {
+            sp->widget(1)->setVisible(on);
+            actDetail->setText(on ? "📋 Detalhes" : "📋");
+        }
     });
 
     connect(actLayoutBoth,  &QAction::triggered, this, [this]() {
@@ -249,7 +276,7 @@ static const struct {
 };
 static const int kPaletteSize = 8;
 
-QString MindMapDialog::groupToJson(Group* g, int colorIdx, int depth) const
+QString MindMapDialog::groupToJson(Group* g, int colorIdx, int depth, const QString& prefix) const
 {
     if (!g) return "{}";
     if (m_db && g == m_db->metadata()->recycleBin()) return "";
@@ -261,9 +288,22 @@ QString MindMapDialog::groupToJson(Group* g, int colorIdx, int depth) const
     obj["id"]   = QString(g->uuid().toRfc4122().toHex());
     obj["type"] = "group";
 
+    // Conta filhos válidos para saber se é nó folha
+    int validChildren = 0;
+    for (auto* child : g->children())
+        if (!m_db || child != m_db->metadata()->recycleBin()) ++validChildren;
+    if (m_chkEntries->isChecked()) validChildren += g->entries().size();
+    const bool isLeaf = (validChildren == 0);
+
     QJsonObject gStyle;
+    // Linha mais grossa para nós folha (sem filhos) — torna a conexão mais visível
+    QJsonObject linkStyle;
+    linkStyle["stroke"]      = QString(pal.grpBg);
+    linkStyle["strokeWidth"] = isLeaf ? 3 : 2;
+
+    obj["num"] = prefix;   // número hierárquico — aparece no tooltip via JS
+
     if (depth == 0) {
-        // Grupo principal: círculo/pílula sólido com contorno nítido
         obj["topic"] = "📁 " + g->name();
         gStyle["background"]   = pal.grpBg;
         gStyle["color"]        = pal.grpFg;
@@ -272,7 +312,6 @@ QString MindMapDialog::groupToJson(Group* g, int colorIdx, int depth) const
         gStyle["fontWeight"]   = "bold";
         gStyle["padding"]      = "6px 18px";
     } else {
-        // Sub-grupo: pílula suave com contorno da cor do grupo pai
         obj["topic"] = "🗂 " + g->name();
         gStyle["background"]   = pal.subBg;
         gStyle["color"]        = pal.subFg;
@@ -280,13 +319,17 @@ QString MindMapDialog::groupToJson(Group* g, int colorIdx, int depth) const
         gStyle["border"]       = QString("2px solid %1").arg(pal.subBorder);
         gStyle["padding"]      = "4px 14px";
     }
-    obj["style"] = gStyle;
+    obj["style"]       = gStyle;
+    obj["branchColor"] = QString(pal.grpBg);
+    obj["linkStyle"]   = linkStyle;
 
     QJsonArray children;
+    int childIdx = 1;
 
     for (auto* child : g->children()) {
         if (m_db && child == m_db->metadata()->recycleBin()) continue;
-        const QString childJson = groupToJson(child, colorIdx, depth + 1);
+        const QString childPrefix = QString("%1.%2").arg(prefix).arg(childIdx++);
+        const QString childJson = groupToJson(child, colorIdx, depth + 1, childPrefix);
         if (!childJson.isEmpty())
             children.append(QJsonDocument::fromJson(childJson.toUtf8()).object());
     }
@@ -295,7 +338,9 @@ QString MindMapDialog::groupToJson(Group* g, int colorIdx, int depth) const
         for (auto* e : g->entries()) {
             QJsonObject eObj;
             eObj["id"]    = QString(e->uuid().toRfc4122().toHex());
+            const QString ePrefix = QString("%1.%2").arg(prefix).arg(childIdx++);
             eObj["topic"] = "📄 " + e->title();
+            eObj["num"]   = ePrefix;
             eObj["type"]  = "entry";
             QJsonObject eStyle;
             eStyle["background"]   = pal.entBg;
@@ -304,7 +349,12 @@ QString MindMapDialog::groupToJson(Group* g, int colorIdx, int depth) const
             eStyle["border"]       = QString("1px solid %1").arg(pal.entBorder);
             eStyle["fontSize"]     = "12px";
             eStyle["padding"]      = "2px 10px";
-            eObj["style"] = eStyle;
+            QJsonObject eLinkStyle;
+            eLinkStyle["stroke"]      = QString(pal.grpBg);
+            eLinkStyle["strokeWidth"] = 2;
+            eObj["style"]       = eStyle;
+            eObj["branchColor"] = QString(pal.grpBg);
+            eObj["linkStyle"]   = eLinkStyle;
             children.append(eObj);
         }
     }
@@ -329,10 +379,12 @@ QString MindMapDialog::buildJson() const
 
     QJsonArray children;
     const auto topGroups = rootGrp->children();
+    int topIdx = 1;
     for (int i = 0; i < topGroups.size(); ++i) {
         auto* g = topGroups[i];
         if (m_db && g == m_db->metadata()->recycleBin()) continue;
-        const QString gJson = groupToJson(g, i, 0);
+        const QString prefix = QString::number(topIdx++);
+        const QString gJson = groupToJson(g, i, 0, prefix);
         if (!gJson.isEmpty())
             children.append(QJsonDocument::fromJson(gJson.toUtf8()).object());
     }
@@ -351,16 +403,27 @@ void MindMapDialog::injectMap()
     m_webView->page()->runJavaScript(js);
 }
 
+// Constrói o caminho completo de um grupo: "Root › Pessoal › Trabalho › CfdmNote"
+static QString groupPath(Group* g)
+{
+    QStringList parts;
+    for (Group* cur = g; cur; cur = cur->parentGroup())
+        parts.prepend(cur->name());
+    return parts.join(" › ");
+}
+
 void MindMapDialog::updateDetail(const QString& id, const QString& topic,
                                   const QString& type)
 {
     Q_UNUSED(id)
     m_detailTitle->setText(type == "entry" ? "📄 " + topic : "📁 " + topic);
+    m_detailSub->clear();
+    m_detailBody->clear();
+    m_detailPath->clear();
 
     if (!m_db) return;
 
     if (type == "entry") {
-        // Procura a entrada pelo título (rápido para bancos normais)
         for (auto* e : m_db->rootGroup()->entriesRecursive()) {
             if (e->title() == topic) {
                 m_detailSub->setText(e->group() ? "📁 " + e->group()->name() : "");
@@ -369,6 +432,9 @@ void MindMapDialog::updateDetail(const QString& id, const QString& topic,
                 if (!e->url().isEmpty())      body << "🔗 " + e->url();
                 if (!e->tags().isEmpty())     body << "🏷️ " + e->tags();
                 m_detailBody->setText(body.join("\n"));
+                // Caminho no banco
+                if (e->group())
+                    m_detailPath->setText("📍 " + groupPath(e->group()) + " › " + e->title());
                 return;
             }
         }
@@ -379,6 +445,7 @@ void MindMapDialog::updateDetail(const QString& id, const QString& topic,
                 const int total  = g->entriesRecursive().size();
                 m_detailSub->setText(tr("%1 entradas · %2 total").arg(direct).arg(total));
                 m_detailBody->setText(tr("%1 subgrupo(s)").arg(g->children().size()));
+                m_detailPath->setText("📍 " + groupPath(g));
                 return;
             }
         }
