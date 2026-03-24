@@ -81,6 +81,7 @@
 #include "gui/PowerSearchDialog.h"
 #include "gui/AudioCaptureDialog.h"
 #include "gui/TranslateDialog.h"
+#include "gui/VoiceCommandDialog.h"
 #include "notes/NoteManager.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
@@ -1319,6 +1320,30 @@ int main(int argc, char* argv[])
         AudioCaptureDialog::captureAudio(entry, db, &mainWindow);
     });
 
+    // Assistente de Voz (comandos falados → criar entrada/grupo/nota)
+    QAction* actVoiceCmd = cfdmMenu->addAction(
+        QIcon::fromTheme("audio-input-microphone"),
+        QObject::tr("&Assistente de Voz...")
+    );
+    actVoiceCmd->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_V));
+    QObject::connect(actVoiceCmd, &QAction::triggered, [&mainWindow]() {
+        auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+        QSharedPointer<Database> db;
+        Group* grp   = nullptr;
+        Entry* entry = nullptr;
+        if (dbTabWidget && dbTabWidget->currentDatabaseWidget()) {
+            auto* dbw = dbTabWidget->currentDatabaseWidget();
+            db    = dbw->database();
+            entry = dbw->currentSelectedEntry();
+            // Grupo atual = grupo da entrada selecionada, ou grupo selecionado na árvore
+            if (entry && entry->group())
+                grp = entry->group();
+            else if (db)
+                grp = db->rootGroup();
+        }
+        VoiceCommandDialog::run(db, grp, entry, &mainWindow);
+    });
+
     // Pesquisa Poderosa (011) — busca local + web + Google Dorking + verificar link
     QAction* actPowerSearch = cfdmMenu->addAction(
         QIcon::fromTheme("system-search"),
@@ -1794,22 +1819,41 @@ int main(int argc, char* argv[])
             "QToolButton:hover { background: #faf5ff; border-radius: 4px; }"
             "QToolButton:pressed { background: #e9d8fd; }");
         btn->setToolTip(QObject::tr(
-            "<b>🤖 Assistente de IA</b><br><br>"
-            "Em desenvolvimento — CFDM Triplex<br>"
-            "<i>Analisa entradas, notas e grupos com IA.<br>"
-            "Disponível em versão futura.</i>"));
-        QObject::connect(btn, &QToolButton::clicked, &mainWindow, [&mainWindow]() {
-            QMessageBox::information(&mainWindow,
-                QObject::tr("🤖 Assistente de IA"),
-                QObject::tr(
-                    "<b>CFDM Triplex — Em desenvolvimento</b><br><br>"
-                    "Este botão irá conectar o CfdmNote ao motor de agentes de IA.<br><br>"
-                    "Funcionalidades previstas:<br>"
-                    "• Análise de entradas e notas por IA<br>"
-                    "• Geração de conteúdo a partir das suas anotações<br>"
-                    "• Integração bidirecional com CFDM Triplex<br><br>"
-                    "<i>Disponível em versão futura.</i>"));
+            "<b>🤖 IA / Assistente de Voz</b><br><br>"
+            "• Assistente de Voz: crie entradas, grupos e notas por voz<br>"
+            "• CFDM Triplex IA: em desenvolvimento"));
+        btn->setPopupMode(QToolButton::InstantPopup);
+
+        auto* iaMenu = new QMenu(btn);
+
+        // Assistente de Voz — disponível agora
+        auto* actVoiceIA = iaMenu->addAction(
+            QIcon::fromTheme("audio-input-microphone"),
+            QObject::tr("🎙 Assistente de Voz  (Ctrl+Shift+V)"));
+        QObject::connect(actVoiceIA, &QAction::triggered, &mainWindow, [&mainWindow]() {
+            auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+            QSharedPointer<Database> db;
+            Group* grp   = nullptr;
+            Entry* entry = nullptr;
+            if (dbTabWidget && dbTabWidget->currentDatabaseWidget()) {
+                auto* dbw = dbTabWidget->currentDatabaseWidget();
+                db    = dbw->database();
+                entry = dbw->currentSelectedEntry();
+                if (entry && entry->group()) grp = entry->group();
+                else if (db)                 grp = db->rootGroup();
+            }
+            VoiceCommandDialog::run(db, grp, entry, &mainWindow);
         });
+
+        iaMenu->addSeparator();
+
+        // CFDM Triplex — em desenvolvimento
+        auto* actTriplex = iaMenu->addAction(
+            QIcon::fromTheme("system-run"),
+            QObject::tr("🤖 CFDM Triplex IA  (em breve)"));
+        actTriplex->setEnabled(false);
+
+        btn->setMenu(iaMenu);
         tb->addWidget(btn);
     });
 
