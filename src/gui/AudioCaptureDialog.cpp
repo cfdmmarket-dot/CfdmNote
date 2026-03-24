@@ -226,19 +226,47 @@ void AudioCaptureDialog::captureAudio(Entry* entry,
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Locais onde pip/pipx instalam scripts no Linux
+static QStringList whisperSearchPaths()
+{
+    return {
+        QDir::homePath() + "/.local/bin/whisper",
+        "/usr/local/bin/whisper",
+        "/usr/bin/whisper",
+    };
+}
+
 QString AudioCaptureDialog::whisperEngine() const
 {
-    // Tenta whisper-cli (whisper.cpp)
+    // 1. whisper-cli (whisper.cpp)
     QProcess p;
     p.start("whisper-cli", {"--help"});
-    if (p.waitForFinished(1500) && p.exitCode() == 0)
-        return "whisper-cli (whisper.cpp)";
+    if (p.waitForFinished(2000) && p.exitCode() == 0)
+        return "whisper-cli";
 
-    // Tenta python3 -m whisper
-    QProcess p2;
-    p2.start("python3", {"-m", "whisper", "--help"});
-    if (p2.waitForFinished(3000) && p2.exitCode() == 0)
-        return "python3 -m whisper (openai-whisper)";
+    // 2. Binário "whisper" (openai-whisper) em PATH ou locais conhecidos
+    {
+        // Tenta via PATH primeiro
+        QProcess p2;
+        p2.start("whisper", {"--help"});
+        if (p2.waitForFinished(8000) && (p2.exitCode() == 0 || p2.exitCode() == 1))
+            return "whisper";
+
+        // Tenta caminhos absolutos (caso ~/.local/bin não esteja no PATH do Qt)
+        for (const QString& path : whisperSearchPaths()) {
+            if (!QFileInfo::exists(path)) continue;
+            QProcess p3;
+            p3.start(path, {"--help"});
+            if (p3.waitForFinished(8000) && (p3.exitCode() == 0 || p3.exitCode() == 1))
+                return path;   // retorna o caminho completo
+        }
+    }
+
+    // 3. python3 -m whisper (fallback)
+    QProcess p4;
+    p4.start("python3", {"-m", "whisper", "--help"});
+    if (p4.waitForFinished(8000) && (p4.exitCode() == 0 || p4.exitCode() == 1))
+        return "python3 -m whisper";
 
     return {};
 }
@@ -385,28 +413,61 @@ void AudioCaptureDialog::onTranscribe()
     const QString lang  = m_langCombo->currentText();
 
     m_btnTranscribe->setEnabled(false);
-    setStatus(tr("⏳ Transcrevendo com %1 (modelo: %2)...").arg(engine, model));
+    setStatus(tr("⏳ Transcrevendo com %1 (modelo: %2)... pode demorar na 1ª vez (baixa modelo).")
+                  .arg(engine.section('/', -1), model));  // mostra só o nome, não o path
+
+    // Deleta processo anterior se existir
+    if (m_transcProc) {
+        m_transcProc->disconnect();
+        if (m_transcProc->state() != QProcess::NotRunning) {
+            m_transcProc->kill();
+            m_transcProc->waitForFinished(1000);
+        }
+        m_transcProc->deleteLater();
+        m_transcProc = nullptr;
+    }
 
     m_transcProc = new QProcess(this);
     m_transcProc->setWorkingDirectory(QDir::tempPath());
 
+    // Captura stderr em tempo real (whisper/download progress vai aparecer no status)
+    connect(m_transcProc, &QProcess::readyReadStandardError, this, [this]() {
+        const QString line = QString::fromUtf8(m_transcProc->readAllStandardError())
+                                 .trimmed().split('\n').last().left(80);
+        if (!line.isEmpty())
+            setStatus(tr("⏳ %1").arg(line));
+    });
+
     QStringList args;
-    if (engine.startsWith("whisper-cli")) {
+    if (engine == "whisper-cli") {
         // whisper.cpp CLI
         args << "--model"    << QString("ggml-%1.bin").arg(model)
              << "--language" << (lang == "auto" ? QString("auto") : lang.left(2).toLower())
              << "--output-txt"
              << "--file"     << WAV_PATH;
         m_transcProc->start("whisper-cli", args);
-    } else {
-        // python3 -m whisper
-        args << "-m"             << "whisper"
+    } else if (engine == "python3 -m whisper") {
+        args << "-m" << "whisper"
              << WAV_PATH
-             << "--model"        << model
-             << "--language"     << (lang == "auto" ? QString("auto") : lang)
+             << "--model"         << model
+             << "--language"      << (lang == "auto" ? QString("auto") : lang)
              << "--output_format" << "txt"
-             << "--output_dir"   << QDir::tempPath();
+             << "--output_dir"    << QDir::tempPath();
         m_transcProc->start("python3", args);
+    } else {
+        // "whisper" CLI direto (caminho absoluto ou no PATH)
+        args << WAV_PATH
+             << "--model"         << model
+             << "--language"      << (lang == "auto" ? QString("auto") : lang)
+             << "--output_format" << "txt"
+             << "--output_dir"    << QDir::tempPath();
+        m_transcProc->start(engine, args);  // engine pode ser "/home/user/.local/bin/whisper"
+    }
+
+    if (!m_transcProc->waitForStarted(3000)) {
+        setStatus(tr("Erro: não foi possível iniciar o processo de transcrição."), "#c05621");
+        m_btnTranscribe->setEnabled(true);
+        return;
     }
 
     connect(m_transcProc,
@@ -419,24 +480,43 @@ void AudioCaptureDialog::onTranscribeFinished(int exitCode)
     m_btnTranscribe->setEnabled(true);
 
     if (exitCode != 0) {
-        const QString err = QString::fromUtf8(m_transcProc->readAllStandardError()).trimmed();
+        const QString err = QString::fromUtf8(
+            m_transcProc->readAllStandardError() +
+            m_transcProc->readAllStandardOutput()).trimmed().left(200);
         setStatus(tr("Erro na transcrição (código %1): %2").arg(exitCode).arg(err), "#c05621");
         return;
     }
 
-    // Tenta ler o .txt gerado pelo whisper
-    const QString txtPath = WAV_PATH.left(WAV_PATH.length() - 4) + ".txt";
+    // 1. Tenta ler o .txt gerado pelo whisper no diretório temp
+    const QFileInfo wavInfo(WAV_PATH);
+    const QString txtPath = QDir::tempPath() + "/" + wavInfo.completeBaseName() + ".txt";
     QString text;
 
     QFile f(txtPath);
     if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
         text = QString::fromUtf8(f.readAll()).trimmed();
         f.close();
+        QFile::remove(txtPath);  // limpa arquivo temporário
     }
 
-    // Fallback: lê a saída padrão do processo
+    // 2. Fallback: stdout
     if (text.isEmpty())
         text = QString::fromUtf8(m_transcProc->readAllStandardOutput()).trimmed();
+
+    // 3. Fallback: stderr (whisper às vezes escreve o texto lá)
+    if (text.isEmpty()) {
+        const QString err = QString::fromUtf8(m_transcProc->readAllStandardError()).trimmed();
+        // Pega linhas que não são log do whisper (não começam com "[" ou "100%")
+        QStringList lines = err.split('\n');
+        QStringList textLines;
+        for (const QString& l : lines) {
+            const QString t = l.trimmed();
+            if (!t.isEmpty() && !t.startsWith('[') && !t.startsWith("100%") &&
+                !t.startsWith("Downloading") && !t.startsWith("whisper"))
+                textLines << t;
+        }
+        text = textLines.join('\n').trimmed();
+    }
 
     if (text.isEmpty()) {
         setStatus(tr("Transcrição vazia — tente um modelo maior ou verifique o áudio."),

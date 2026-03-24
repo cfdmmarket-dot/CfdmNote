@@ -383,6 +383,29 @@
 
 ---
 
+## Sessão 18 — Fix transcrição de áudio (v2.4.5)
+**Data:** 2026-03-24
+**Versão:** v2.4.5
+
+### Problema
+Usuário gravava áudio mas transcrição não funcionava. Causa raiz: o binário `whisper` instalado pelo pip fica em `~/.local/bin/whisper` — caminho que o Qt não inclui no PATH ao lançar o app via GUI.
+
+### Fix aplicado
+- `whisperEngine()` agora busca em 3 níveis:
+  1. `whisper-cli` (whisper.cpp)
+  2. `whisper` no PATH + caminhos absolutos conhecidos (`~/.local/bin/whisper`, `/usr/local/bin/whisper`, `/usr/bin/whisper`)
+  3. `python3 -m whisper` como fallback
+- Timeout aumentado de 3s para 8s (Python + torch levam ~2s para carregar)
+- `onTranscribe()`: process anterior é deletado antes de criar novo (sem leak)
+- `readyReadStandardError` conectado → status label mostra progresso em tempo real (download do modelo, etc.)
+- `waitForStarted(3000)` verifica se o processo realmente iniciou
+- `onTranscribeFinished()`: lê txt pelo caminho correto (`QDir::tempPath() + basename + ".txt"`); fallback em stdout e depois stderr; limpa arquivo temp após leitura
+
+### Diagnóstico que revelou o problema
+`find / -name "whisper-cli"` → encontrou `/home/cfdm/.local/bin/whisper` (openai-whisper CLI)
+
+---
+
 ## Sessão 16 — Regra de Ouro Global: Proceed = Always Yes
 **Data:** 2026-03-24
 **Versão:** v2.4.2
