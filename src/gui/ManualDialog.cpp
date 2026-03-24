@@ -1,4 +1,5 @@
 #include "ManualDialog.h"
+#include "CfdmVersion.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -211,7 +212,8 @@ ManualDialog::ManualDialog(QWidget* parent)
     auto* footerLayout = new QHBoxLayout(footer);
     footerLayout->setContentsMargins(12, 4, 12, 4);
 
-    auto* versionLabel = new QLabel(tr("CfdmNote v2.1.0 — Manual de Consulta"));
+    auto* versionLabel = new QLabel(tr("CfdmNote v%1 — Manual de Consulta · Atualizado 2026-03-24")
+                                        .arg(CFDMNOTE_VERSION));
     versionLabel->setStyleSheet("font-size: 10px; color: #718096;");
 
     auto* btnDevlog = new QPushButton(tr("📋 Diário de Dev"));

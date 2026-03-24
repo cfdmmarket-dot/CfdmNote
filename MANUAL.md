@@ -1,5 +1,7 @@
 # CfdmNote — Manual de Consulta
-**Versão 2.1.0** · Plataforma Linux · C++17 + Qt5
+**Versão 2.4.2** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
+
+> 💡 **Como saber se o manual está atualizado:** a versão acima deve coincidir com a versão exibida na tela de login. Se for diferente, o manual está desatualizado para essa release.
 
 ---
 
@@ -29,6 +31,10 @@
 22. [Compilar e Executar](#22-compilar-e-executar)
 23. [Roadmap Expandido — Obsidian + Evernote](#23-roadmap-expandido--obsidian--evernote)
 24. [Diário de Desenvolvimento](#24-diário-de-desenvolvimento)
+25. [Mapa Mental](#25-mapa-mental)
+26. [Assistente de Voz](#26-assistente-de-voz)
+27. [Verificador de Dependências](#27-verificador-de-dependências)
+28. [Descoberta e CLI de Banco de Dados](#28-descoberta-e-cli-de-banco-de-dados)
 
 ---
 
@@ -747,5 +753,157 @@ O diário permite que:
 
 ---
 
-*CfdmNote v2.1.0 — Desenvolvido por CFDM*
-*Manual atualizado em 2026-03-23*
+---
+
+## 25. Mapa Mental
+
+**Acesso:** Menu CfdmNote → Mapa Mental · ou botão na toolbar
+
+O Mapa Mental gera automaticamente uma visualização gráfica de todos os grupos e entradas do banco aberto.
+
+### Interação
+| Ação | Resultado |
+|------|-----------|
+| Clique num nó | Expande ou recolhe os filhos |
+| Arrastar nó | Move livremente no canvas (apenas visual) |
+| Rolar scroll | Zoom in/out |
+| Arrastar fundo | Panorâmica do mapa |
+| `Ctrl+Z` / botão ↩ | Desfaz último movimento de nó |
+
+### Hover — número hierárquico
+Ao passar o mouse sobre qualquer nó aparece um tooltip com a numeração hierárquica:
+- Grupos de topo: `1`, `2`, `3`…
+- Sub-grupos: `1.1`, `1.2`…
+- Sub-sub-grupos: `1.1.1`…
+
+Isso ajuda a identificar a posição do elemento sem seguir as linhas.
+
+### Painel de detalhes
+Ao clicar num nó o painel lateral mostra:
+- Título e tipo (grupo ou entrada)
+- Caminho completo no banco: `📍 Root › Pessoal › Trabalho › CfdmNote`
+- Informações extras (usuário, URL, tags — para entradas)
+
+### Botões da toolbar
+| Botão | Função |
+|-------|--------|
+| ↺ Recarregar | Regenera o mapa com dados atuais do banco |
+| 🔍+ / 🔍− | Zoom in / out |
+| ⊡ Caber | Centraliza o mapa |
+| 💾 PNG | Exporta screenshot do mapa |
+| ↩ Desfazer | Desfaz último movimento de nó |
+| 📋 Detalhes | Mostra/oculta painel lateral (tecla `D`) |
+| ↔ Lateral / → Direita / ← Esquerda | Direção do layout |
+| Entradas | Mostra/oculta entradas individuais no mapa |
+
+### Importante
+O mapa é **puramente visual** — arrastar nós não altera a estrutura do banco.
+Para reorganizar grupos/entradas use a interface principal do KeePassXC e depois clique em Recarregar.
+
+---
+
+## 26. Assistente de Voz
+
+**Acesso:** Menu CfdmNote → Assistente de Voz · `Ctrl+Shift+V` · Botão 🤖 IA na toolbar
+
+**Requisito:** `openai-whisper` instalado (`pip install openai-whisper`)
+
+O Assistente de Voz permite criar entradas, grupos e notas falando um comando.
+
+### Como usar
+1. Selecione o grupo ou entrada de destino na interface principal
+2. Abra o Assistente de Voz
+3. Clique em **● Gravar** e diga o comando
+4. Clique em **■ Parar**
+5. Clique em **Transcrever**
+6. Confirme a ação detectada e clique em **✔ Executar**
+
+### Comandos suportados
+| O que dizer | Ação executada |
+|-------------|----------------|
+| `"Criar entrada GitHub"` | Cria entrada com título "GitHub" no grupo atual |
+| `"Nova entrada Banco Nubank"` | Cria entrada "Banco Nubank" no grupo atual |
+| `"Criar grupo Finanças"` | Cria grupo "Finanças" dentro do grupo atual |
+| `"Novo grupo Projetos"` | Cria grupo "Projetos" dentro do grupo atual |
+| `"Adicionar nota Reunião amanhã às 14h"` | Adiciona texto à nota da entrada selecionada |
+| `"Nota Lembrar de renovar certificado"` | Idem — atalho sem "adicionar" |
+
+### Confirmação antes de executar
+O sistema sempre mostra o que vai fazer antes de executar:
+> → Criar entrada **GitHub** no grupo **Dev**
+
+Use **✎ Corrigir** para editar o texto transcrito e tentar novamente.
+
+### Modelo de transcrição
+O modelo padrão é `base` (~140 MB, baixado automaticamente na primeira vez).
+Para mais precisão em PT-BR, considere usar `small` ou `medium` no `AudioCaptureDialog`.
+
+---
+
+## 27. Verificador de Dependências
+
+**Acesso:** Menu CfdmNote → 🔍 Verificar Dependências · aparece automaticamente na primeira execução
+
+O verificador inspeciona todos os programas auxiliares necessários para as features do CfdmNote.
+
+### Status por dependência
+| Ícone | Significado |
+|-------|-------------|
+| ✅ | Instalado e funcionando |
+| ⚠ | Opcional — ausente desabilita feature específica |
+| ❌ | Obrigatório — feature essencial não funciona |
+
+### Dependências verificadas
+| Dependência | Feature habilitada | Instalar com |
+|-------------|-------------------|--------------|
+| `arecord` (alsa-utils) | Gravação de áudio pelo microfone | `sudo apt install alsa-utils` |
+| `aplay` (alsa-utils) | Reproduzir áudio gravado | `sudo apt install alsa-utils` |
+| `python3` | Execução de scripts e Whisper | `sudo apt install python3` |
+| `openai-whisper` | Transcrição de voz → texto | `pip install openai-whisper` |
+| `whisper-cli` | Transcrição alternativa (mais rápida) | Ver whisper.cpp no GitHub |
+| `ffmpeg` | Conversão de formatos de áudio | `sudo apt install ffmpeg` |
+| `xclip` | Área de transferência (clipboard) | `sudo apt install xclip` |
+| `tesseract-ocr` | OCR — texto em imagens (feature futura) | `sudo apt install tesseract-ocr` |
+
+### Instalar tudo de uma vez
+Clique em **📋 Copiar comandos faltando** — todos os comandos necessários são copiados para o clipboard. Cole no terminal e execute.
+
+---
+
+## 28. Descoberta e CLI de Banco de Dados
+
+### Argumento de linha de comando
+É possível indicar qual banco abrir diretamente ao iniciar o CfdmNote:
+
+```bash
+./cfdmnote --database /caminho/para/meu_banco.kdbx
+```
+
+O caminho é salvo automaticamente para as próximas execuções.
+
+### Descoberta automática
+Se nenhum banco estiver configurado (primeira instalação ou banco movido), o CfdmNote:
+1. Varre locais comuns em busca de arquivos `.kdbx` e `.ksdb`:
+   - `~/`, `~/Documentos`, `~/Desktop`, `~/Dropbox`, `~/OneDrive`
+   - Pendrives e HDs externos em `/media/$USER/` e `/run/media/$USER/`
+2. Exibe um picker com os bancos encontrados
+3. Ao selecionar, salva o caminho para uso futuro
+
+### Opções no picker
+| Botão | Ação |
+|-------|------|
+| Abrir selecionado | Usa o banco escolhido da lista |
+| Criar novo banco | Cria um banco limpo no local padrão |
+| Perguntar depois | Ignora por agora (aparece de novo se ainda não configurado) |
+
+### Para uso com Docker ou imagem
+Monte o banco como volume e passe o caminho via argumento:
+```bash
+docker run -v /home/usuario/banco.kdbx:/data/banco.kdbx cfdmnote \
+  --database /data/banco.kdbx
+```
+
+---
+
+*CfdmNote v2.4.2 — Desenvolvido por CFDM*
+*Manual atualizado em 2026-03-24*
