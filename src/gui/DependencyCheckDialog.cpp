@@ -22,6 +22,7 @@ struct DepDef {
     const char* installCmd;      // comando de instalação recomendado
     bool        required;        // true = obrigatório / false = opcional
     const char* description;     // o que acontece sem ele
+    const char* alternativeOf;   // se não vazio, é alternativa — satisfeito quando o outro estiver presente
 };
 
 static QList<DepDef> depDefs()
@@ -33,7 +34,8 @@ static QList<DepDef> depDefs()
             "arecord", {"--version"},
             "sudo apt install alsa-utils",
             false,
-            "Sem este pacote não é possível gravar áudio pelo microfone."
+            "Sem este pacote não é possível gravar áudio pelo microfone.",
+            ""
         },
         {
             "aplay  (alsa-utils)",
@@ -41,7 +43,8 @@ static QList<DepDef> depDefs()
             "aplay", {"--version"},
             "sudo apt install alsa-utils",
             false,
-            "Sem este pacote não é possível reproduzir o áudio gravado para conferência."
+            "Sem este pacote não é possível reproduzir o áudio gravado para conferência.",
+            ""
         },
         {
             "python3",
@@ -49,7 +52,8 @@ static QList<DepDef> depDefs()
             "python3", {"--version"},
             "sudo apt install python3",
             false,
-            "Necessário para executar o Whisper (transcrição de voz)."
+            "Necessário para executar o Whisper (transcrição de voz).",
+            ""
         },
         {
             "python3 -m whisper  (openai-whisper)",
@@ -58,7 +62,8 @@ static QList<DepDef> depDefs()
             "pip install openai-whisper",
             false,
             "Sem Whisper o Assistente de Voz e Capturar Áudio não conseguem converter fala em texto. "
-            "O modelo base (~140 MB) é baixado automaticamente na primeira transcrição."
+            "O modelo base (~140 MB) é baixado automaticamente na primeira transcrição.",
+            ""
         },
         {
             "whisper-cli  (whisper.cpp)",
@@ -66,7 +71,8 @@ static QList<DepDef> depDefs()
             "whisper-cli", {"--help"},
             "# Instalar whisper.cpp: https://github.com/ggerganov/whisper.cpp",
             false,
-            "Alternativa mais rápida ao openai-whisper. Opcional se openai-whisper estiver instalado."
+            "Alternativa mais rápida ao openai-whisper. Opcional se openai-whisper estiver instalado.",
+            "python3 -m whisper  (openai-whisper)"  // satisfeito se openai-whisper estiver presente
         },
         {
             "ffmpeg",
@@ -74,7 +80,8 @@ static QList<DepDef> depDefs()
             "ffmpeg", {"-version"},
             "sudo apt install ffmpeg",
             false,
-            "Melhora a compatibilidade de formatos de áudio. Recomendado mas não obrigatório."
+            "Melhora a compatibilidade de formatos de áudio. Recomendado mas não obrigatório.",
+            ""
         },
         {
             "xclip  ou  xsel",
@@ -83,7 +90,8 @@ static QList<DepDef> depDefs()
             "sudo apt install xclip",
             false,
             "Usado por algumas funções de cópia rápida no Linux. "
-            "O Qt tem fallback interno, então a maioria das funções continua funcionando."
+            "O Qt tem fallback interno, então a maioria das funções continua funcionando.",
+            ""
         },
         {
             "tesseract-ocr",
@@ -92,7 +100,8 @@ static QList<DepDef> depDefs()
             "sudo apt install tesseract-ocr tesseract-ocr-por",
             false,
             "Necessário para a feature de OCR (leitura de texto em screenshots/fotos). "
-            "Ainda não implementada — instale quando a feature for lançada."
+            "Ainda não implementada — instale quando a feature for lançada.",
+            ""
         },
     };
 }
@@ -101,8 +110,11 @@ static QList<DepDef> depDefs()
 
 QList<DependencyCheckDialog::DepResult> DependencyCheckDialog::check()
 {
+    const auto defs = depDefs();
     QList<DepResult> results;
-    for (const auto& d : depDefs()) {
+
+    // Primeira passagem: testa cada executável
+    for (const auto& d : defs) {
         DepResult r;
         r.name       = d.name;
         r.feature    = d.feature;
@@ -114,7 +126,6 @@ QList<DependencyCheckDialog::DepResult> DependencyCheckDialog::check()
         p.start(d.checkExe, d.checkArgs);
         r.found = p.waitForFinished(3000) && (p.exitCode() == 0 || p.exitCode() == 1);
         if (r.found) {
-            // Tenta capturar versão da primeira linha de saída
             const QString out = QString::fromUtf8(
                 p.readAllStandardOutput() + p.readAllStandardError()).trimmed();
             const QString firstLine = out.split('\n').first().left(60);
@@ -123,6 +134,22 @@ QList<DependencyCheckDialog::DepResult> DependencyCheckDialog::check()
         results << r;
         QApplication::processEvents();
     }
+
+    // Segunda passagem: resolve alternativas
+    // Se A não foi encontrado mas "alternativeOf" aponta para B e B foi encontrado → A = ✅ satisfeito
+    for (int i = 0; i < results.size(); ++i) {
+        const QString alt = QString::fromUtf8(defs[i].alternativeOf);
+        if (!alt.isEmpty() && !results[i].found) {
+            for (const auto& other : results) {
+                if (other.name == alt && other.found) {
+                    results[i].found  = true;
+                    results[i].detail = tr("Satisfeito por: %1").arg(alt);
+                    break;
+                }
+            }
+        }
+    }
+
     return results;
 }
 
