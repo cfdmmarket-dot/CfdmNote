@@ -10,6 +10,7 @@
 #include <QLabel>
 #include <QScrollArea>
 #include <QFrame>
+#include <QTimer>
 
 // ─── Definição das dependências ───────────────────────────────────────────────
 
@@ -206,13 +207,30 @@ DependencyCheckDialog::DependencyCheckDialog(QWidget* parent)
         for (int row = 0; row < m_table->rowCount(); ++row) {
             auto* statusItem = m_table->item(row, 0);
             auto* cmdItem    = m_table->item(row, 3);
-            if (statusItem && cmdItem &&
-                statusItem->text().contains("❌") &&
-                !cmdItem->text().startsWith("#"))
-                cmds << cmdItem->text();
+            if (!statusItem || !cmdItem) continue;
+            const QString status = statusItem->text();
+            const QString cmd    = cmdItem->text().trimmed();
+            // Copia qualquer item faltando (❌ obrigatório ou ⚠ opcional), exceto "—" e comentários
+            if ((status.contains("❌") || status.contains("⚠")) &&
+                cmd != "—" && !cmd.startsWith("#") && !cmd.isEmpty())
+                cmds << cmd;
         }
-        if (!cmds.isEmpty())
+        if (cmds.isEmpty()) {
+            m_btnCopy->setText(tr("📋 Nada para copiar"));
+        } else {
             QApplication::clipboard()->setText(cmds.join("\n"));
+            m_btnCopy->setText(tr("✅ Copiado! (%1 comando(s))").arg(cmds.size()));
+            m_btnCopy->setStyleSheet(
+                "QPushButton{background:#276749;color:white;border-radius:4px;padding:5px 14px;}"
+                "QPushButton:hover{background:#1c4532;}");
+        }
+        // Restaura o botão após 3 segundos
+        QTimer::singleShot(3000, m_btnCopy, [this]() {
+            m_btnCopy->setText(tr("📋 Copiar comandos faltando"));
+            m_btnCopy->setStyleSheet(
+                "QPushButton{background:#3182ce;color:white;border-radius:4px;padding:5px 14px;}"
+                "QPushButton:hover{background:#2b6cb0;}");
+        });
     });
 
     // Executa checagem
