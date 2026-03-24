@@ -326,3 +326,34 @@
 
 *CfdmNote DEVLOG — Mantido por Claude Code (Anthropic) + Cfdm Market*
 *Atualizar a cada sessão de desenvolvimento*
+
+---
+
+## Sessão 15 — Verificador de Dependências + Regras de Ouro
+**Data:** 2026-03-24
+**Versão:** v2.4.2
+
+### Features confirmadas ✅
+
+#### Verificador de Dependências (v2.4.2)
+- `DependencyCheckDialog` — tabela com status ✅/⚠/❌ para cada dependência
+- Dependências verificadas: `arecord`, `aplay`, `python3`, `openai-whisper`, `whisper-cli`, `ffmpeg`, `xclip`, `tesseract-ocr`
+- Cada item mostra: **feature habilitada** + **comando de instalação exato**
+- Botão "Copiar comandos faltando" — coloca todos os `apt install`/`pip install` no clipboard
+- Roda automaticamente na primeira execução ou sempre que algo estiver faltando (800ms após login)
+- Acessível a qualquer momento: Menu CfdmNote → "🔍 Verificar Dependências..."
+- `QSettings("CfdmNote","CfdmNote").value("startup/depcheck_done")` evita popup repetido quando tudo ok
+
+#### openai-whisper instalado na máquina
+- Versão: 20250625
+- Comando usado: `pip install openai-whisper --break-system-packages`
+- Modelo base (~140MB) será baixado na primeira transcrição automaticamente
+
+### Regras de ouro estabelecidas (persistidas na memória do Claude)
+1. **DEVLOG.md atualizado a cada sessão** — sem exceção
+2. **Proceed = Always Yes** — Claude executa diretamente sem pedir confirmação; só consulta em trade-offs de arquitetura reais
+
+---
+
+*CfdmNote DEVLOG — Mantido por Claude Code (Anthropic) + Cfdm Market*
+*Atualizar a cada sessão de desenvolvimento*
