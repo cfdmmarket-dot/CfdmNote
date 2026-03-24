@@ -278,3 +278,51 @@
 
 *CfdmNote DEVLOG — Mantido por Claude Code (Anthropic) + Cfdm Market*
 *Atualizar a cada sessão de desenvolvimento*
+
+---
+
+## Sessão 14 — Mind Map v2 + Descoberta de Banco + Assistente de Voz
+**Data:** 2026-03-24
+**Versões:** v2.3.9 → v2.4.0 → v2.4.1
+
+### Features confirmadas ✅
+
+#### Mind Map — melhorias visuais e de interação (v2.3.9)
+- **Linhas seguem nós ao arrastar** — `position:relative + left/top` resolveu o problema de nós "flutuando" sobre as linhas; `linkDiv()` do ME v5 usa `getBoundingClientRect()` que respeita o novo posicionamento
+- **`branchColor` explícito por nó** — corrigiu linhas amareladas/pêssego que surgiam pelo indexamento incorreto da paleta do tema
+- **Pointer events bloqueados** — `pointerdown/pointermove/pointerup` capturados no document antes do ME v5, impedindo que o `edgeMoveController` arrastasse o mapa ao passar o mouse pelas bordas sem clicar
+- **Numeração hierárquica no hover** — número `1.2.3` gravado como `num` no JSON; JS aplica `title` nos `me-tpc` após init → aparece no tooltip nativo ao passar o mouse, sem poluir o visual
+- **Caminho no banco (📍)** — painel lateral mostra `Root › Pessoal › Trabalho › CfdmNote` ao clicar num nó
+- **Botão 📋 Detalhes** — toggle para mostrar/ocultar painel lateral (tecla `D`)
+- **`linkStyle.strokeWidth=3` em nós folha** — linhas mais grossas em grupos sem filhos tornam a conexão mais visível
+
+#### Descoberta automática de bancos (v2.4.0)
+- `MainDatabaseManager::configuredPath()` / `setConfiguredPath()` — caminho persistido em `QSettings("CfdmNote","CfdmNote")`
+- `discoverOnMachine()` — varre `~/`, `~/Documentos`, `~/Desktop`, Dropbox, OneDrive, `/media/$USER/*`, `/run/media/*` por `.kdbx`/`.ksdb`
+- **Argumento CLI `--database /path/banco.kdbx`** — define o banco a abrir na inicialização; com validação de existência
+- **Picker automático** — se banco configurado não existe e há `.kdbx` na máquina, mostra dialog com lista para o usuário escolher; botão "Criar novo" volta ao padrão
+
+#### Assistente de Voz (v2.4.1)
+- `VoiceCommandDialog` — grava até 1min (arecord), transcreve via Whisper (whisper-cli ou python3)
+- **Parser de intenção** com regex PT-BR:
+  - `"criar entrada <nome>"` → cria `Entry` no grupo atual
+  - `"novo grupo <nome>"` → cria `Group` filho do grupo atual
+  - `"adicionar nota <texto>"` → append na nota da entrada selecionada
+- **Confirmação antes de executar** — mostra "→ Criar entrada **GitHub** no grupo **Dev**" e aguarda clique em ✔ Executar ou ✎ Corrigir
+- Acesso: Menu CfdmNote → Assistente de Voz (`Ctrl+Shift+V`) e Botão 🤖 IA na toolbar
+- Botão 🤖 IA virou menu: item Assistente de Voz + item CFDM Triplex IA (desabilitado, em breve)
+
+### Lembrete (feature anterior confirmada nesta sessão)
+- Sistema de lembretes funcionando perfeitamente ✅
+
+### Decisão de arquitetura
+- **Mind Map é puramente visual** — arrastar nós não altera o banco; reorganização real é feita na interface KeePassXC + recarregar o mapa
+- **Banco configurável por sessão** — `configuredPath()` persiste entre reinícios via `QSettings`
+
+### Convenção estabelecida
+- **DEVLOG.md deve ser atualizado a cada sessão** (instrução permanente do usuário)
+
+---
+
+*CfdmNote DEVLOG — Mantido por Claude Code (Anthropic) + Cfdm Market*
+*Atualizar a cada sessão de desenvolvimento*
