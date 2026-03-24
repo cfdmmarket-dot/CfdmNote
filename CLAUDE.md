@@ -1,9 +1,17 @@
 # CfdmNote — Contexto para o Claude Code
 
+## ⚡ Regras de Ouro do Projeto (SEMPRE aplicar)
+
+1. **Proceed = sempre SIM** — nunca perguntar "posso prosseguir?", "quer que eu faça?", "confirma?". Se o próximo passo for claro, executar diretamente.
+2. **DEVLOG.md atualizado a cada sessão** — sem exceção. Commit separado no final.
+3. **MANUAL.md e ManualDialog sempre com a versão atual** — atualizar junto com cada release.
+
+---
+
 ## O que é este projeto
 CfdmNote = KeePassXC completo + notas Markdown integradas (estilo Obsidian).
 
-**Regra de ouro:** A interface do KeePassXC NÃO é modificada.
+**Regra de ouro de arquitetura:** A interface do KeePassXC NÃO é modificada.
 Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não invasiva.
 
 ## Stack

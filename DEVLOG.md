@@ -355,5 +355,22 @@
 
 ---
 
+## Sessão 16 — Regra de Ouro Global: Proceed = Always Yes
+**Data:** 2026-03-24
+**Versão:** v2.4.2
+
+### O que aconteceu
+- CLAUDE.md atualizado com bloco de Regras de Ouro no topo (persistidas entre sessões)
+- Usuário reforçou: a regra **Proceed = Always Yes** vale para **tudo** que fizermos juntos, não só neste projeto
+- Regra atualizada na memória do Claude para aplicação global
+- Usuário não precisa ficar na frente do ecrã — Claude deve trabalhar de forma autônoma
+
+### Regra de ouro reforçada
+- **Nunca perguntar "posso prosseguir?"** — executar diretamente se o próximo passo é claro
+- **Aplica a todos os projetos** — não só ao CfdmNote
+- **Proceed = Always Yes** é regra global, permanente, sem exceção para confirmações óbvias
+
+---
+
 *CfdmNote DEVLOG — Mantido por Claude Code (Anthropic) + Cfdm Market*
 *Atualizar a cada sessão de desenvolvimento*
