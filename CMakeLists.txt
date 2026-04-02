@@ -170,6 +170,10 @@ add_custom_target(deploy-desktop ALL
             "$ENV{HOME}/.local/share/icons/hicolor/256x256/apps/cfdmnote.png"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_BINARY_DIR}/cfdmnote.desktop" "${_DESKTOP_DST}"
+    # Copia também para ~/Desktop para o atalho na área de trabalho
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_BINARY_DIR}/cfdmnote.desktop"
+            "$ENV{HOME}/Desktop/CfdmNote.desktop"
     COMMAND ${CMAKE_COMMAND} -E echo
             "Desktop instalado: CfdmNote ${CFDMNOTE_VERSION}"
     DEPENDS cfdmnote

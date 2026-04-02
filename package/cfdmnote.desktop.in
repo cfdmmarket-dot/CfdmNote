@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=CfdmNote v@CFDMNOTE_VERSION@
+GenericName=Gerenciador de senhas com notas
+Comment=CfdmNote v@CFDMNOTE_VERSION@ — KeePassXC + Markdown — CFDM Holding
+Exec=@CFDMNOTE_EXEC@
+Icon=cfdmnote
+Categories=Utility;Security;Office;
+Terminal=false
+StartupNotify=true
+StartupWMClass=cfdmnote
+MimeType=application/x-keepass2;
