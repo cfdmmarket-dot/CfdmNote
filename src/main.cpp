@@ -791,6 +791,13 @@ int main(int argc, char* argv[])
     config()->remove(Config::LastOpenedDatabases);
     config()->remove(Config::LastActiveDatabase);
 
+    // Suprime o banner "unstable build" / "pre-release" do KeePassXC.
+    // O submodule é compilado como Snapshot por padrão, o que ativa o banner
+    // globalMessageWidget com aviso persistente "KeePassXC 2.8.0 unstable".
+    // Marcar como "já visto" evita que ele apareça mesmo se o BUILD_TYPE
+    // não for sobreescrito corretamente no CMake.
+    config()->set(Config::Messages_HidePreReleaseWarning, QString(KEEPASSXC_VERSION));
+
     {
         AppLockDialog lockDlg;
         lockDlg.setWindowFlag(Qt::WindowStaysOnTopHint, true);
