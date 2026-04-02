@@ -14,7 +14,9 @@
 #include <QShortcut>
 #include <QKeySequence>
 #include <QApplication>
+#include <QCoreApplication>
 #include <QScreen>
+#include <QPixmap>
 
 // cmark-gfm
 #include "cmark-gfm.h"
@@ -212,7 +214,20 @@ ManualDialog::ManualDialog(QWidget* parent)
     auto* footerLayout = new QHBoxLayout(footer);
     footerLayout->setContentsMargins(12, 4, 12, 4);
 
-    auto* versionLabel = new QLabel(tr("CfdmNote v%1 — Manual de Consulta · Atualizado 2026-03-24")
+    // Logo CFDM Holding no footer
+    auto* holdingFooterLbl = new QLabel();
+    {
+        QPixmap px;
+        const QString p1 = ":/icons/cfdm-holding-logo.png";
+        const QString p2 = QCoreApplication::applicationDirPath()
+                           + "/../resources/icons/cfdm-holding-logo.png";
+        if (!px.load(p1)) px.load(p2);
+        if (!px.isNull())
+            holdingFooterLbl->setPixmap(px.scaled(56, 28, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    }
+    footerLayout->addWidget(holdingFooterLbl);
+
+    auto* versionLabel = new QLabel(tr("CfdmNote v%1 — Manual de Consulta · CFDM Holding")
                                         .arg(CFDMNOTE_VERSION));
     versionLabel->setStyleSheet("font-size: 10px; color: #718096;");
 

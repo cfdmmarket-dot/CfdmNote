@@ -4,4 +4,18 @@
         <file alias="MANUAL.md">../MANUAL.md</file>
         <file alias="DEVLOG.md">../DEVLOG.md</file>
     </qresource>
+    <qresource prefix="/icons">
+        <file alias="cfdmnote_256.png">icons/cfdmnote_256.png</file>
+        <file alias="cfdmnote_128.png">icons/cfdmnote_128.png</file>
+        <file alias="cfdmnote_64.png">icons/cfdmnote_64.png</file>
+        <file alias="cfdmnote_48.png">icons/cfdmnote_48.png</file>
+        <file alias="cfdmnote_32.png">icons/cfdmnote_32.png</file>
+        <file alias="cfdmnote_16.png">icons/cfdmnote_16.png</file>
+        <file alias="diamond_toolbar_32.png">icons/diamond_toolbar_32.png</file>
+        <file alias="diamond_toolbar_20.png">icons/diamond_toolbar_20.png</file>
+        <file alias="diamond_tray_16.png">icons/diamond_tray_16.png</file>
+        <file alias="diamond_ai_32.png">icons/diamond_ai_32.png</file>
+        <file alias="diamond_ai_16.png">icons/diamond_ai_16.png</file>
+        <file alias="cfdm-holding-logo.png">icons/cfdm-holding-logo.png</file>
+    </qresource>
 </RCC>

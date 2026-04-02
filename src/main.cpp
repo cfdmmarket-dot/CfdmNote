@@ -1623,21 +1623,85 @@ int main(int argc, char* argv[])
         cfdmMenu->addAction(QObject::tr("Sobre &CfdmNote")),
         &QAction::triggered,
         [&mainWindow]() {
-            QMessageBox::about(&mainWindow,
-                QObject::tr("Sobre CfdmNote"),
-                QObject::tr(
-                    "<b>CfdmNote v%1</b><br><br>"
-                    "Gerenciador de senhas com notas Markdown integradas.<br><br>"
-                    "<b>Funcionalidades:</b><br>"
-                    "&#8226; Entradas e grupos de senhas<br>"
-                    "&#8226; Auto-Type<br>"
-                    "&#8226; Notas Markdown vinculadas a entradas<br>"
-                    "&#8226; [[wiki-links]] entre notas<br>"
-                    "&#8226; Grafo de conhecimento<br>"
-                    "&#8226; Banco nativo .ksdb (SQLite + FTS5)<br>"
-                    "&#8226; Cofre criptografado opcional (.kdbx)"
-                ).arg(APP_VERSION)
-            );
+            // Monta diálogo "Sobre" com ambos os logos
+            QDialog* aboutDlg = new QDialog(&mainWindow);
+            aboutDlg->setWindowTitle(QObject::tr("Sobre CfdmNote"));
+            aboutDlg->setFixedWidth(400);
+            aboutDlg->setAttribute(Qt::WA_DeleteOnClose);
+
+            auto* vlay = new QVBoxLayout(aboutDlg);
+            vlay->setSpacing(10);
+            vlay->setContentsMargins(28, 24, 28, 24);
+
+            // Logos lado a lado
+            auto* logosRow = new QHBoxLayout();
+            logosRow->addStretch();
+
+            // Diamante CfdmNote
+            auto* diamondLbl = new QLabel();
+            {
+                QPixmap px;
+                const QString p1 = ":/icons/cfdmnote_128.png";
+                const QString p2 = QCoreApplication::applicationDirPath()
+                                   + "/../resources/icons/cfdmnote_128.png";
+                if (!px.load(p1)) px.load(p2);
+                if (!px.isNull())
+                    diamondLbl->setPixmap(px.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            }
+            logosRow->addWidget(diamondLbl);
+
+            logosRow->addSpacing(16);
+
+            // CFDM Holding
+            auto* holdingLbl = new QLabel();
+            {
+                QPixmap px;
+                const QString p1 = ":/icons/cfdm-holding-logo.png";
+                const QString p2 = QCoreApplication::applicationDirPath()
+                                   + "/../resources/icons/cfdm-holding-logo.png";
+                if (!px.load(p1)) px.load(p2);
+                if (!px.isNull())
+                    holdingLbl->setPixmap(px.scaled(100, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            }
+            logosRow->addWidget(holdingLbl);
+            logosRow->addStretch();
+            vlay->addLayout(logosRow);
+
+            // Textos
+            auto* titleLbl = new QLabel(
+                QString("<b style='font-size:15px'>CfdmNote v%1</b>").arg(CFDMNOTE_VERSION));
+            titleLbl->setAlignment(Qt::AlignCenter);
+            vlay->addWidget(titleLbl);
+
+            auto* subtitleLbl = new QLabel(
+                QObject::tr("<span style='color:#555'>Um produto <b>CFDM Holding</b></span>"));
+            subtitleLbl->setAlignment(Qt::AlignCenter);
+            vlay->addWidget(subtitleLbl);
+
+            vlay->addSpacing(4);
+
+            auto* descLbl = new QLabel(QObject::tr(
+                "Gerenciador de senhas com notas Markdown integradas.<br><br>"
+                "<b>Funcionalidades:</b><br>"
+                "&#8226; Entradas e grupos de senhas (KeePassXC 2.8.0)<br>"
+                "&#8226; Notas Markdown vinculadas a entradas<br>"
+                "&#8226; Mapa Mental, Kanban, Whiteboard<br>"
+                "&#8226; Pesquisa Poderosa + Trending global<br>"
+                "&#8226; Lembretes, Voz, Tradução, Glossário<br>"
+                "&#8226; Cofre criptografado AES-256 (.kdbx)"));
+            descLbl->setWordWrap(true);
+            descLbl->setStyleSheet("font-size: 11px; color: #333;");
+            vlay->addWidget(descLbl);
+
+            vlay->addSpacing(8);
+
+            auto* btnOk = new QPushButton(QObject::tr("OK"));
+            btnOk->setFixedHeight(32);
+            btnOk->setDefault(true);
+            QObject::connect(btnOk, &QPushButton::clicked, aboutDlg, &QDialog::accept);
+            vlay->addWidget(btnOk, 0, Qt::AlignCenter);
+
+            aboutDlg->exec();
         }
     );
 

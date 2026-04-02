@@ -35,21 +35,44 @@ void AppLockDialog::setupUi(bool firstRun)
     layout->setSpacing(14);
     layout->setContentsMargins(32, 28, 32, 28);
 
-    // ── Logo ──────────────────────────────────────────────────────────────
+    // ── Logos: CfdmNote (diamante) + CFDM Holding — lado a lado ─────────────
+    auto* logosRow = new QHBoxLayout();
+    logosRow->setSpacing(12);
+    logosRow->addStretch();
+
+    // Logo diamante CfdmNote
     m_logoLabel = new QLabel();
     m_logoLabel->setAlignment(Qt::AlignCenter);
-    const QString iconPath = QStandardPaths::locate(
-        QStandardPaths::AppDataLocation, "icons/cfdmnote_128.png");
-    const QString altPath = QCoreApplication::applicationDirPath()
-                            + "/../resources/icons/cfdmnote_128.png";
-    QPixmap logo;
-    if (!iconPath.isEmpty())
-        logo.load(iconPath);
-    else if (QFile::exists(altPath))
-        logo.load(altPath);
-    if (!logo.isNull())
-        m_logoLabel->setPixmap(logo.scaled(72, 72, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    layout->addWidget(m_logoLabel);
+    {
+        const QString iconPath = QStandardPaths::locate(
+            QStandardPaths::AppDataLocation, "icons/cfdmnote_128.png");
+        const QString altPath = QCoreApplication::applicationDirPath()
+                                + "/../resources/icons/cfdmnote_128.png";
+        QPixmap logo;
+        if (!iconPath.isEmpty()) logo.load(iconPath);
+        else if (QFile::exists(altPath)) logo.load(altPath);
+        if (!logo.isNull())
+            m_logoLabel->setPixmap(logo.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    }
+    logosRow->addWidget(m_logoLabel);
+
+    // Logo CFDM Holding
+    auto* holdingLabel = new QLabel();
+    holdingLabel->setAlignment(Qt::AlignCenter);
+    {
+        const QString holdingPath = QCoreApplication::applicationDirPath()
+                                    + "/../resources/icons/cfdm-holding-logo.png";
+        const QString holdingQrc  = ":/icons/cfdm-holding-logo.png";
+        QPixmap holdingLogo;
+        if (QFile::exists(holdingPath)) holdingLogo.load(holdingPath);
+        else holdingLogo.load(holdingQrc);
+        if (!holdingLogo.isNull())
+            holdingLabel->setPixmap(holdingLogo.scaled(90, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    }
+    logosRow->addWidget(holdingLabel);
+
+    logosRow->addStretch();
+    layout->addLayout(logosRow);
 
     // ── Título ────────────────────────────────────────────────────────────
     m_titleLabel = new QLabel("CfdmNote");
