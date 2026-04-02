@@ -69,6 +69,7 @@
 #include "gui/LinksPanelWidget.h"
 #include "gui/RelatedEntriesWidget.h"
 #include "gui/ReminderPanelWidget.h"
+#include "gui/AttachmentsPanelWidget.h"
 #include "gui/BackupDialog.h"
 #include "gui/ShareDialog.h"
 #include "gui/ExportNoteDialog.h"
@@ -85,6 +86,13 @@
 #include "gui/DependencyCheckDialog.h"
 #include "gui/GlossaryDialog.h"
 #include "gui/MergeGroupDialog.h"
+#include "gui/KdbxImportDialog.h"
+#include "gui/ImportDocDialog.h"
+#include "gui/AppearanceDialog.h"
+#include "gui/IconThemeDialog.h"
+#include "gui/FeatureSearchDialog.h"
+#include "gui/CreationDialog.h"
+#include "gui/PersonalAssistantDialog.h"
 #include "notes/NoteManager.h"
 #include "reminders/ReminderManager.h"
 #include "db/MainDatabaseManager.h"
@@ -436,6 +444,77 @@ static NoteEditorWidget* setupNotesTab(DatabaseWidget* dbWidget)
     commentRowLayout->addWidget(commentEdit, 1);
     notesLayout->addWidget(commentFrame);
 
+    // ── Mini-toolbar da aba Notas ──────────────────────────────────────────
+    auto* notesToolbar = new QWidget();
+    notesToolbar->setStyleSheet(
+        "QWidget { background: palette(window); border-bottom: 1px solid palette(mid); }");
+    auto* notesToolbarLayout = new QHBoxLayout(notesToolbar);
+    notesToolbarLayout->setContentsMargins(4, 2, 4, 2);
+    notesToolbarLayout->setSpacing(4);
+
+    auto* btnImportDoc = new QPushButton(
+        QIcon::fromTheme("document-import"),
+        QObject::tr("📄 Importar Documento / Imagem"));
+    btnImportDoc->setObjectName("btnImportDocNote");
+    btnImportDoc->setToolTip(QObject::tr(
+        "Importar arquivo como nota desta entrada\n"
+        "Suporta: txt, md, pdf, docx, odt, rtf, html,\n"
+        "PNG, JPG, BMP, TIFF via OCR (tesseract)"));
+    btnImportDoc->setFlat(true);
+    btnImportDoc->setEnabled(false); // habilitado quando uma entrada estiver selecionada
+    notesToolbarLayout->addWidget(btnImportDoc);
+    notesToolbarLayout->addStretch();
+
+    // Conexão: importa e insere o texto na nota da entrada atual
+    // (noteEditor ainda não está declarado aqui — usamos findChild no lambda)
+    QObject::connect(btnImportDoc, &QPushButton::clicked, [dbWidget]() {
+        auto db = dbWidget->database();
+        if (!db) return;
+        Entry* entry = dbWidget->currentSelectedEntry();
+        if (!entry) return;
+
+        const QString filePath = QFileDialog::getOpenFileName(
+            dbWidget,
+            QObject::tr("Selecionar documento ou imagem"),
+            QDir::homePath(),
+            QObject::tr("Documentos e Imagens ("
+                "*.txt *.md *.log *.csv "
+                "*.pdf *.docx *.odt *.rtf *.html *.htm "
+                "*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp *.gif"
+                ");;Todos os arquivos (*)")
+        );
+        if (filePath.isEmpty()) return;
+
+        QString errOut;
+        const QString text = ImportDocDialog::extractText(filePath, errOut);
+        if (text.isEmpty()) {
+            QMessageBox::warning(dbWidget, QObject::tr("Importar Documento"),
+                errOut.isEmpty()
+                    ? QObject::tr("Não foi possível extrair texto do arquivo.")
+                    : errOut);
+            return;
+        }
+
+        // Insere o texto na nota do NoteManager (aba Notas)
+        auto* ned = dbWidget->findChild<NoteEditorWidget*>();
+        if (ned) {
+            if (ned->currentNoteId().isEmpty())
+                ned->loadNoteForEntry(entry->uuidToHex());
+
+            const QString imported =
+                QObject::tr("📄 *Importado de: %1*\n\n").arg(QFileInfo(filePath).fileName()) +
+                text;
+            ned->appendText(imported);
+        }
+
+        // Adiciona o caminho original à aba Links — para abrir o documento depois
+        auto* linksPanel = dbWidget->findChild<LinksPanelWidget*>();
+        if (linksPanel)
+            linksPanel->addExternalLink(filePath);
+    });
+
+    notesLayout->addWidget(notesToolbar);
+
     auto* noteEditor = new NoteEditorWidget();
     notesLayout->addWidget(noteEditor, 1);
 
@@ -459,6 +538,12 @@ static NoteEditorWidget* setupNotesTab(DatabaseWidget* dbWidget)
     reminderPanel->setObjectName("reminderPanelWidget");
     tabWidget->addTab(reminderPanel,
                       QIcon::fromTheme("appointment-new"), QObject::tr("⏰ Lembrete"));
+
+    // Aba Anexos (binários, áudio, docs, removíveis)
+    auto* attachPanel = new AttachmentsPanelWidget();
+    attachPanel->setObjectName("attachmentsPanelWidget");
+    tabWidget->addTab(attachPanel,
+                      QIcon::fromTheme("mail-attachment"), QObject::tr("📎 Anexos"));
 
     // ── Garante que o painel de abas nunca some ────────────────────────────
     tabWidget->setMinimumHeight(160);
@@ -594,11 +679,13 @@ static void connectDbWidget(DatabaseWidget* dbWidget)
 
         QObject::connect(dbWidget, &DatabaseWidget::entrySelectionChanged,
                          noteEditor, [dbWidget, noteEditor]() {
-            auto* gifLabel      = dbWidget->findChild<QLabel*>("gifIconLabel");
-            auto* linksPanel    = dbWidget->findChild<LinksPanelWidget*>();
-            auto* commentEdit   = dbWidget->findChild<QPlainTextEdit*>("entryCommentEdit");
+            auto* gifLabel       = dbWidget->findChild<QLabel*>("gifIconLabel");
+            auto* linksPanel     = dbWidget->findChild<LinksPanelWidget*>();
+            auto* commentEdit    = dbWidget->findChild<QPlainTextEdit*>("entryCommentEdit");
             auto* relatedWidget  = dbWidget->findChild<RelatedEntriesWidget*>();
             auto* reminderPanel  = dbWidget->findChild<ReminderPanelWidget*>();
+            auto* attachPanel    = dbWidget->findChild<AttachmentsPanelWidget*>();
+            auto* btnImport      = dbWidget->findChild<QPushButton*>("btnImportDocNote");
             Entry* entry = dbWidget->currentSelectedEntry();
             if (entry) {
                 noteEditor->loadNoteForEntry(entry->uuidToHex());
@@ -606,24 +693,28 @@ static void connectDbWidget(DatabaseWidget* dbWidget)
                 if (linksPanel)    linksPanel->loadEntry(entry, dbWidget->database());
                 if (relatedWidget) relatedWidget->setEntry(entry, dbWidget->database());
                 if (reminderPanel) reminderPanel->setEntry(entry, dbWidget->database());
+                if (attachPanel)   attachPanel->setEntry(entry, dbWidget->database());
                 if (commentEdit) {
                     commentEdit->blockSignals(true);
                     commentEdit->setPlainText(entry->attributes()->value("CfdmNote::Comment"));
                     commentEdit->blockSignals(false);
                     commentEdit->setEnabled(true);
                 }
+                if (btnImport) btnImport->setEnabled(true);
             } else {
                 noteEditor->clearNote();
                 updateGifPreview(gifLabel, nullptr, {});
                 if (linksPanel)    linksPanel->clearLinks();
                 if (relatedWidget) relatedWidget->clear();
                 if (reminderPanel) reminderPanel->clear();
+                if (attachPanel)   attachPanel->clear();
                 if (commentEdit) {
                     commentEdit->blockSignals(true);
                     commentEdit->clear();
                     commentEdit->blockSignals(false);
                     commentEdit->setEnabled(false);
                 }
+                if (btnImport) btnImport->setEnabled(false);
             }
         }, Qt::UniqueConnection);
 
@@ -707,12 +798,18 @@ int main(int argc, char* argv[])
             return 0;
     }
 
-    // ── Ícone do CfdmNote (substitui o ícone do KeePassXC em toda a app) ──────
-    const QString iconPath = QString("%1/../resources/icons/cfdmnote_128.png")
-                             .arg(app.applicationDirPath());
-    const QIcon cfdmIcon = QFile::exists(iconPath)
-                           ? QIcon(iconPath)
-                           : QIcon::fromTheme("dialog-password");
+    // ── Ícone do CfdmNote — diamante, multi-resolução ────────────────────────
+    QIcon cfdmIcon;
+    cfdmIcon.addFile(":/icons/cfdmnote_256.png", QSize(256,256));
+    cfdmIcon.addFile(":/icons/cfdmnote_128.png", QSize(128,128));
+    cfdmIcon.addFile(":/icons/cfdmnote_32.png",  QSize(32,32));
+    cfdmIcon.addFile(":/icons/cfdmnote_16.png",  QSize(16,16));
+    if (cfdmIcon.isNull()) {
+        const QString iconPath = QString("%1/../resources/icons/cfdmnote_128.png")
+                                 .arg(app.applicationDirPath());
+        if (QFile::exists(iconPath)) cfdmIcon = QIcon(iconPath);
+        else cfdmIcon = QIcon::fromTheme("dialog-password");
+    }
     app.setWindowIcon(cfdmIcon);
 
     // ── Janela principal do CfdmNote ──────────────────────────────────────────
@@ -743,6 +840,7 @@ int main(int argc, char* argv[])
     mainWindow.installEventFilter(titleFilter);
 
     // Força título, patches visuais e conexão de entradas após inicializar
+    const QString iconPath = ":/icons/cfdmnote_128.png";
     QTimer::singleShot(0, &mainWindow, [&mainWindow, &iconPath, busyOverlay]() {
         // Título com versão
         QString t = mainWindow.windowTitle();
@@ -1136,6 +1234,26 @@ int main(int argc, char* argv[])
         });
     }
 
+    // Importar .kdbx externo (abre com senha, copia tudo para banco atual)
+    {
+        QAction* actKdbxImport = cfdmMenu->addAction(
+            QIcon::fromTheme("document-open"),
+            QObject::tr("📂 Importar .kdbx Externo..."));
+        actKdbxImport->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_K));
+        actKdbxImport->setToolTip(QObject::tr(
+            "<b>Importar banco .kdbx externo</b><br>"
+            "Abre qualquer .kdbx antigo (com ou sem senha) e copia<br>"
+            "todos os grupos e entradas para o banco atual.<br>"
+            "<b>Atalho:</b> Ctrl+Shift+K"));
+        QObject::connect(actKdbxImport, &QAction::triggered, [&mainWindow]() {
+            auto* tabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+            QSharedPointer<Database> db;
+            if (tabWidget && tabWidget->currentDatabaseWidget())
+                db = tabWidget->currentDatabaseWidget()->database();
+            KdbxImportDialog::runImport(db, &mainWindow, &mainWindow);
+        });
+    }
+
     // Importar CSV (com barra de progresso real)
     QAction* actImportCsv = cfdmMenu->addAction(
         QIcon::fromTheme("document-import"),
@@ -1150,58 +1268,25 @@ int main(int argc, char* argv[])
         CsvImportDialog::runImport(db, &mainWindow, &mainWindow);
     });
 
-    // Importar TXT — cria entradas a partir de arquivos de texto
+    // Importar Documentos/Imagens — txt, pdf, docx, odt, rtf, html, png, jpg, etc.
     QAction* actImportTxt = cfdmMenu->addAction(
-        QIcon::fromTheme("text-plain"),
-        QObject::tr("Importar &TXT...")
+        QIcon::fromTheme("document-import"),
+        QObject::tr("Importar &Documentos / Imagens...")
     );
-    QObject::connect(actImportTxt, &QAction::triggered, [&mainWindow, busyOverlay]() {
+    actImportTxt->setToolTip(QObject::tr(
+        "<b>Importar Documentos / Imagens</b><br>"
+        "Importa arquivos como notas: txt, md, pdf, docx, odt, rtf, html<br>"
+        "e imagens PNG/JPG/BMP/TIFF via OCR (tesseract)"));
+    QObject::connect(actImportTxt, &QAction::triggered, [&mainWindow]() {
         auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
         if (!dbTabWidget || !dbTabWidget->currentDatabaseWidget()) {
-            QMessageBox::warning(&mainWindow, QObject::tr("Importar TXT"),
+            QMessageBox::warning(&mainWindow, QObject::tr("Importar Documentos"),
                 QObject::tr("Abra um banco de dados primeiro."));
             return;
         }
         auto db = dbTabWidget->currentDatabaseWidget()->database();
         if (!db) return;
-
-        const QStringList files = QFileDialog::getOpenFileNames(
-            &mainWindow, QObject::tr("Selecionar arquivos TXT"),
-            QDir::homePath(),
-            QObject::tr("Arquivos de texto (*.txt);;Todos os arquivos (*)")
-        );
-        if (files.isEmpty()) return;
-
-        busyOverlay->setGeometry(mainWindow.rect());
-        busyOverlay->raise();
-        busyOverlay->setVisible(true);
-        QApplication::processEvents();
-
-        auto* root = db->rootGroup();
-        int count = 0;
-        for (const QString& filePath : files) {
-            QFile f(filePath);
-            if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
-            const QString content = QString::fromUtf8(f.readAll());
-            f.close();
-
-            auto* entry = new Entry();
-            entry->setTitle(QFileInfo(filePath).completeBaseName());
-            entry->setNotes(content);
-            entry->setGroup(root);
-            ++count;
-            QApplication::processEvents();
-        }
-
-        busyOverlay->setVisible(false);
-
-        QString saveErr;
-        db->save(Database::Atomic, {}, &saveErr);
-
-        QMessageBox::information(&mainWindow, QObject::tr("Importar TXT"),
-            saveErr.isEmpty()
-                ? QObject::tr("%1 arquivo(s) importado(s) com sucesso.").arg(count)
-                : QObject::tr("%1 arquivo(s) importado(s). Aviso: %2").arg(count).arg(saveErr));
+        ImportDocDialog::importDocs(db, &mainWindow);
     });
 
     // Definir lembrete na entrada (004)
@@ -1598,12 +1683,8 @@ int main(int argc, char* argv[])
         "LastPass, Bitwarden e outros gestores de senhas."));
     actImportCsv->setStatusTip(QObject::tr("Importar entradas de arquivo .csv (Chrome, Firefox, LastPass, etc.)"));
 
-    actImportTxt->setToolTip(QObject::tr(
-        "<b>📄 Importar TXT</b><br><br>"
-        "Cria entradas a partir de arquivos de texto (.txt).<br>"
-        "O nome do arquivo vira o título da entrada;<br>"
-        "o conteúdo é salvo na aba Notas."));
-    actImportTxt->setStatusTip(QObject::tr("Criar entradas a partir de arquivos .txt"));
+    actImportTxt->setStatusTip(QObject::tr(
+        "Importar documentos (txt, pdf, docx, odt, rtf, html) e imagens via OCR como notas"));
 
     actReminder->setToolTip(QObject::tr(
         "<b>⏰ Definir Lembrete</b> <i>(Ctrl+Shift+R)</i><br><br>"
@@ -1761,7 +1842,11 @@ int main(int argc, char* argv[])
     }
 
     // ── Tema de cores (aplica antes de mostrar a janela) ──────────────────────
-    ThemeManager::apply(ThemeManager::saved(), &app);
+    // Se tema customizado salvo, usa ele; caso contrário aplica o tema pré-definido
+    if (QSettings().value("cfdmnote/theme").toString() == "custom")
+        AppearanceDialog::applySaved(&app);
+    else
+        ThemeManager::apply(ThemeManager::saved(), &app);
 
     // ── Submenu de temas no menu CfdmNote ────────────────────────────────────
     {
@@ -1788,6 +1873,36 @@ int main(int argc, char* argv[])
         actSteel->setToolTip(QObject::tr(
             "<b>💠 Steel Blue</b><br>Azul mais suave e luminoso — fundo claro, acentos azul-aço.<br>"
             "Ícones completamente visíveis. Ótimo para ambientes com bastante luz."));
+
+        themeMenu->addSeparator();
+
+        auto* actCustom = themeMenu->addAction(
+            QIcon::fromTheme("preferences-color"),
+            QObject::tr("🎨 Personalizar Aparência..."));
+        actCustom->setToolTip(QObject::tr(
+            "<b>🎨 Personalizar Aparência</b><br>"
+            "Escolha cores de fundo, texto, destaque e fonte.<br>"
+            "Também acessível com <b>clique direito</b> na janela."));
+        QObject::connect(actCustom, &QAction::triggered, [&app, &mainWindow]() {
+            auto* dlg = new AppearanceDialog(&app, &mainWindow);
+            QObject::connect(dlg, &AppearanceDialog::resetRequested, [&app]() {
+                ThemeManager::apply(ThemeManager::Theme::NavyBlue, &app);
+            });
+            dlg->exec();
+            dlg->deleteLater();
+        });
+
+        auto* actIcons = themeMenu->addAction(
+            QIcon::fromTheme("preferences-desktop-icons"),
+            QObject::tr("🖼 Gerenciar Ícones..."));
+        actIcons->setToolTip(QObject::tr(
+            "<b>🖼 Gerenciar Ícones</b><br>"
+            "Substitua qualquer ícone do CfdmNote por uma imagem personalizada."));
+        QObject::connect(actIcons, &QAction::triggered, [&app, &mainWindow]() {
+            auto* dlg = new IconThemeDialog(&app, &mainWindow);
+            dlg->exec();
+            dlg->deleteLater();
+        });
 
         themeMenu->addSeparator();
         auto* infoAct = themeMenu->addAction(
@@ -1819,6 +1934,40 @@ int main(int argc, char* argv[])
 
     mainWindow.show();
 
+    // ── Clique direito na janela principal → menu Aparência ───────────────────
+    {
+        mainWindow.setContextMenuPolicy(Qt::CustomContextMenu);
+        QObject::connect(&mainWindow, &QWidget::customContextMenuRequested,
+                         [&app, &mainWindow](const QPoint& pos) {
+            QMenu ctxMenu(&mainWindow);
+            ctxMenu.addAction(QIcon::fromTheme("preferences-color"),
+                              QObject::tr("🎨 Personalizar Aparência..."),
+                              [&app, &mainWindow]() {
+                auto* dlg = new AppearanceDialog(&app, &mainWindow);
+                QObject::connect(dlg, &AppearanceDialog::resetRequested, [&app]() {
+                    ThemeManager::apply(ThemeManager::Theme::NavyBlue, &app);
+                });
+                dlg->exec();
+                dlg->deleteLater();
+            });
+            ctxMenu.addAction(QIcon::fromTheme("preferences-desktop-icons"),
+                              QObject::tr("🖼 Gerenciar Ícones..."),
+                              [&app, &mainWindow]() {
+                auto* dlg = new IconThemeDialog(&app, &mainWindow);
+                dlg->exec();
+                dlg->deleteLater();
+            });
+            ctxMenu.addSeparator();
+            ctxMenu.addAction(QObject::tr("🌊 Navy Blue"),
+                              [&app]() { ThemeManager::apply(ThemeManager::Theme::NavyBlue, &app); });
+            ctxMenu.addAction(QObject::tr("💠 Steel Blue"),
+                              [&app]() { ThemeManager::apply(ThemeManager::Theme::SteelBlue, &app); });
+            ctxMenu.addAction(QObject::tr("⬜ Padrão do Sistema"),
+                              [&app]() { ThemeManager::apply(ThemeManager::Theme::Default, &app); });
+            ctxMenu.exec(mainWindow.mapToGlobal(pos));
+        });
+    }
+
     // ── Botão 📊 na barra de status → abre DatabaseInfoDialog ────────────────
     {
         auto* btnDbInfo = new QPushButton(QObject::tr("📊  DB Info"), &mainWindow);
@@ -1834,6 +1983,11 @@ int main(int argc, char* argv[])
             DatabaseInfoDialog::showInfo(&mainWindow, &mainWindow);
         });
     }
+
+    // ── Reaplica overrides de ícones de QActions (menus/toolbar) ─────────────
+    QTimer::singleShot(600, &mainWindow, [&mainWindow]() {
+        IconThemeDialog::applyActionOverrides(&mainWindow);
+    });
 
     // ── Tooltip rico na GroupView (árvore de grupos) ──────────────────────────
     QTimer::singleShot(800, &mainWindow, [&mainWindow]() {
@@ -1853,7 +2007,7 @@ int main(int argc, char* argv[])
     });
 
     // ── Botão 🤖 IA na toolbar — reservado para CFDM Triplex (feature 012) ───────
-    QTimer::singleShot(700, &mainWindow, [&mainWindow]() {
+    QTimer::singleShot(700, &mainWindow, [&mainWindow, &app]() {
         const auto toolbars = mainWindow.findChildren<QToolBar*>();
         if (toolbars.isEmpty()) return;
         QToolBar* tb = toolbars.first();
@@ -1861,13 +2015,20 @@ int main(int argc, char* argv[])
         tb->addSeparator();
 
         auto* btn = new QToolButton(tb);
-        btn->setText(QObject::tr("🤖 IA"));
-        btn->setIcon(QIcon::fromTheme("system-run"));
+        btn->setText(QObject::tr("IA"));
+        {
+            QIcon iaIcon;
+            iaIcon.addFile(":/icons/diamond_toolbar_32.png", QSize(32,32));
+            iaIcon.addFile(":/icons/diamond_toolbar_20.png", QSize(20,20));
+            if (iaIcon.isNull()) iaIcon = QIcon::fromTheme("system-run");
+            btn->setIcon(iaIcon);
+        }
+        btn->setIconSize(QSize(22, 22));
         btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         btn->setStyleSheet(
-            "QToolButton { font-weight: bold; color: #805ad5; padding: 2px 10px; }"
-            "QToolButton:hover { background: #faf5ff; border-radius: 4px; }"
-            "QToolButton:pressed { background: #e9d8fd; }");
+            "QToolButton { font-weight: bold; color: #7c3aed; padding: 2px 10px; }"
+            "QToolButton:hover { background: #f5f3ff; border-radius: 4px; }"
+            "QToolButton:pressed { background: #ede9fe; }");
         btn->setToolTip(QObject::tr(
             "<b>🤖 IA / Assistente de Voz</b><br><br>"
             "• Assistente de Voz: crie entradas, grupos e notas por voz<br>"
@@ -1897,14 +2058,289 @@ int main(int argc, char* argv[])
 
         iaMenu->addSeparator();
 
-        // CFDM Triplex — em desenvolvimento
-        auto* actTriplex = iaMenu->addAction(
+        // 🛠 Criar a partir desta entrada
+        auto* actCreate = iaMenu->addAction(
+            QIcon::fromTheme("document-new"),
+            QObject::tr("🛠 Criar a partir desta entrada..."));
+        QObject::connect(actCreate, &QAction::triggered, &mainWindow, [&mainWindow]() {
+            auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+            QSharedPointer<Database> db;
+            Entry* entry = nullptr;
+            if (dbTabWidget && dbTabWidget->currentDatabaseWidget()) {
+                auto* dbw = dbTabWidget->currentDatabaseWidget();
+                db    = dbw->database();
+                entry = dbw->currentSelectedEntry();
+            }
+            CreationDialog::create(entry, db, &mainWindow);
+        });
+
+        // 🤖 Assistente Pessoal
+        auto* actAssistant = iaMenu->addAction(
             QIcon::fromTheme("system-run"),
-            QObject::tr("🤖 CFDM Triplex IA  (em breve)"));
-        actTriplex->setEnabled(false);
+            QObject::tr("🤖 Assistente Pessoal  (CFDM Triplex)"));
+        QObject::connect(actAssistant, &QAction::triggered, &mainWindow, [&mainWindow]() {
+            auto* dbTabWidget = mainWindow.findChild<DatabaseTabWidget*>();
+            QSharedPointer<Database> db;
+            Entry* entry = nullptr;
+            if (dbTabWidget && dbTabWidget->currentDatabaseWidget()) {
+                auto* dbw = dbTabWidget->currentDatabaseWidget();
+                db    = dbw->database();
+                entry = dbw->currentSelectedEntry();
+            }
+            PersonalAssistantDialog::show(entry, db, &mainWindow);
+        });
 
         btn->setMenu(iaMenu);
         tb->addWidget(btn);
+
+        // ── 🎨 Botão Aparência ──────────────────────────────────────────────
+        tb->addSeparator();
+        auto* btnAppear = new QToolButton(tb);
+        btnAppear->setText(QObject::tr("Aparência"));
+        btnAppear->setIcon(QIcon::fromTheme("preferences-desktop-color",
+                           QIcon::fromTheme("preferences-color")));
+        btnAppear->setIconSize(QSize(20, 20));
+        btnAppear->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        btnAppear->setPopupMode(QToolButton::InstantPopup);
+        btnAppear->setToolTip(QObject::tr(
+            "<b>🎨 Aparência</b><br>Cores, fontes, ícones e temas."));
+        btnAppear->setStyleSheet(
+            "QToolButton { padding: 2px 8px; }"
+            "QToolButton:hover { background: rgba(255,255,255,0.15); border-radius:4px; }"
+            "QToolButton::menu-indicator { image:none; }");
+
+        auto* appearMenu = new QMenu(btnAppear);
+        auto* actAp = appearMenu->addAction(QObject::tr("🎨 Personalizar Aparência..."));
+        actAp->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_P));
+        QObject::connect(actAp, &QAction::triggered, [&app, &mainWindow]() {
+            auto* dlg = new AppearanceDialog(&app, &mainWindow);
+            QObject::connect(dlg, &AppearanceDialog::resetRequested, [&app]() {
+                ThemeManager::apply(ThemeManager::Theme::NavyBlue, &app);
+            });
+            dlg->exec(); dlg->deleteLater();
+        });
+        auto* actIcMgr = appearMenu->addAction(QObject::tr("🖼 Gerenciar Ícones..."));
+        QObject::connect(actIcMgr, &QAction::triggered, [&app, &mainWindow]() {
+            auto* dlg = new IconThemeDialog(&app, &mainWindow, &mainWindow);
+            dlg->exec(); dlg->deleteLater();
+        });
+        appearMenu->addSeparator();
+        appearMenu->addAction(QObject::tr("🌊 Navy Blue"),
+            [&app]() { ThemeManager::apply(ThemeManager::Theme::NavyBlue, &app); });
+        appearMenu->addAction(QObject::tr("💠 Steel Blue"),
+            [&app]() { ThemeManager::apply(ThemeManager::Theme::SteelBlue, &app); });
+        appearMenu->addAction(QObject::tr("⬜ Padrão do Sistema"),
+            [&app]() { ThemeManager::apply(ThemeManager::Theme::Default, &app); });
+        btnAppear->setMenu(appearMenu);
+        tb->addWidget(btnAppear);
+
+        // ── 🔍 Botão Buscar Feature (Ctrl+K) ──────────────────────────────
+        auto* btnSearch = new QToolButton(tb);
+        btnSearch->setText(QObject::tr("Buscar"));
+        btnSearch->setIcon(QIcon::fromTheme("system-search",
+                           QIcon::fromTheme("edit-find")));
+        btnSearch->setIconSize(QSize(20, 20));
+        btnSearch->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        btnSearch->setToolTip(QObject::tr(
+            "<b>🔍 Buscar Funcionalidade</b> <i>(Ctrl+K)</i><br>"
+            "Pesquise e abra qualquer feature do CfdmNote pelo nome."));
+        btnSearch->setStyleSheet(
+            "QToolButton { padding: 2px 8px; }"
+            "QToolButton:hover { background: rgba(255,255,255,0.15); border-radius:4px; }");
+
+        // Lambda para abrir o FeatureSearchDialog — usa capturas do escopo atual
+        auto openFeatureSearch = [&app, &mainWindow]() {
+            // Helpers reutilizados
+            auto getDb = [&mainWindow]() -> QSharedPointer<Database> {
+                auto* dbTab = mainWindow.findChild<DatabaseTabWidget*>();
+                if (!dbTab) return {};
+                auto* dbw = dbTab->currentDatabaseWidget();
+                return dbw ? dbw->database() : QSharedPointer<Database>{};
+            };
+            auto getEntry = [&mainWindow]() -> Entry* {
+                auto* dbTab = mainWindow.findChild<DatabaseTabWidget*>();
+                if (!dbTab) return nullptr;
+                auto* dbw = dbTab->currentDatabaseWidget();
+                return dbw ? dbw->currentSelectedEntry() : nullptr;
+            };
+
+            QList<FeatureItem> features = {
+                // ── Notas e entradas ────────────────────────────────────────
+                {"📝", QObject::tr("Notas da Entrada"),
+                 QObject::tr("Notas"), "Ctrl+F9",
+                 QObject::tr("Abre a aba de notas Markdown da entrada selecionada."),
+                 [&mainWindow]() {
+                    auto* dbTab = mainWindow.findChild<DatabaseTabWidget*>();
+                    if (!dbTab) return;
+                    auto* dbw = dbTab->currentDatabaseWidget();
+                    if (!dbw) return;
+                    auto* notesTabs = dbw->findChild<QTabWidget*>("notesTabWidget");
+                    if (notesTabs) notesTabs->setCurrentIndex(1);
+                }},
+                // ── Áudio ────────────────────────────────────────────────────
+                {"🎙", QObject::tr("Capturar Áudio"),
+                 QObject::tr("Áudio"), "Ctrl+Shift+A",
+                 QObject::tr("Grava voz, transcreve com Whisper e insere na nota da entrada."),
+                 [&mainWindow, getEntry, getDb]() {
+                    auto* entry = getEntry();
+                    if (!entry) return;
+                    AudioCaptureDialog::captureAudio(entry, getDb(), &mainWindow);
+                }},
+                // ── IA ───────────────────────────────────────────────────────
+                {"🎤", QObject::tr("Assistente de Voz"),
+                 QObject::tr("IA"), "Ctrl+Shift+V",
+                 QObject::tr("Cria entradas, grupos e notas por comando de voz."),
+                 [&mainWindow, getDb, getEntry]() {
+                    auto db = getDb(); auto* entry = getEntry();
+                    Group* grp = (entry && entry->group()) ? entry->group()
+                                 : (db ? db->rootGroup() : nullptr);
+                    VoiceCommandDialog::run(db, grp, entry, &mainWindow);
+                }},
+                // ── Tradução ─────────────────────────────────────────────────
+                {"🌐", QObject::tr("Traduzir Nota"),
+                 QObject::tr("Texto"), "Ctrl+Shift+T",
+                 QObject::tr("Traduz a nota da entrada via LibreTranslate (sem API key)."),
+                 [&mainWindow]() {
+                    auto* dbTab = mainWindow.findChild<DatabaseTabWidget*>();
+                    if (!dbTab) return;
+                    auto* dbw = dbTab->currentDatabaseWidget();
+                    if (dbw) TranslateDialog::translateEntry(
+                        dbw->currentSelectedEntry(), dbw->database(), &mainWindow);
+                }},
+                // ── Pesquisa ─────────────────────────────────────────────────
+                {"🔍", QObject::tr("Pesquisa Poderosa"),
+                 QObject::tr("Pesquisa"), "Ctrl+Shift+F",
+                 QObject::tr("Busca local por arquivos, web, Dorking, VirusTotal e mais."),
+                 [&mainWindow]() {
+                    PowerSearchDialog dlg(&mainWindow);
+                    dlg.exec();
+                }},
+                // ── Visual ───────────────────────────────────────────────────
+                {"🧠", QObject::tr("Mapa Mental"),
+                 QObject::tr("Visual"), "Ctrl+Shift+M",
+                 QObject::tr("Grafo interativo de entradas com expand/collapse e export SVG."),
+                 [&mainWindow, getDb]() {
+                    auto db = getDb();
+                    if (db) MindMapDialog::showMap(db, &mainWindow);
+                }},
+                {"🗺️", QObject::tr("Roadmap / Kanban"),
+                 QObject::tr("Visual"), "Ctrl+Shift+K",
+                 QObject::tr("Organize entradas em colunas Backlog / Em Progresso / Concluído."),
+                 [&mainWindow, getDb]() {
+                    auto db = getDb();
+                    if (db) RoadmapDialog::showRoadmap(db, &mainWindow);
+                }},
+                {"🖌️", QObject::tr("Whiteboard"),
+                 QObject::tr("Visual"), "Ctrl+Shift+W",
+                 QObject::tr("Canvas livre com cards de entradas e sticky notes coloridas."),
+                 [&mainWindow, getDb]() {
+                    auto db = getDb();
+                    if (db) WhiteboardDialog::showBoard(db, &mainWindow);
+                }},
+                // ── Banco / Arquivos ──────────────────────────────────────────
+                {"💾", QObject::tr("Backup Externo"),
+                 QObject::tr("Banco"), "Ctrl+Shift+B",
+                 QObject::tr("Copia o banco para unidade removível com histórico de 20 entradas."),
+                 [&mainWindow]() {
+                    BackupDialog::runBackup(&mainWindow, &mainWindow);
+                }},
+                {"📥", QObject::tr("Importar CSV"),
+                 QObject::tr("Importar"), {},
+                 QObject::tr("Importa entradas a partir de arquivo CSV com barra de progresso."),
+                 [&mainWindow, getDb]() {
+                    auto db = getDb();
+                    if (db) { CsvImportDialog dlg(db, &mainWindow); dlg.exec(); }
+                }},
+                {"📄", QObject::tr("Importar Documento / Imagem"),
+                 QObject::tr("Importar"), {},
+                 QObject::tr("Importa PDF, DOCX, ODT, HTML ou faz OCR de imagem para a nota."),
+                 [&mainWindow, getDb, getEntry]() {
+                    auto db = getDb(); auto* entry = getEntry();
+                    if (!entry || !db) return;
+                    QString err;
+                    QString path = QFileDialog::getOpenFileName(
+                        &mainWindow, QObject::tr("Importar"),
+                        QDir::homePath(),
+                        QObject::tr("Documentos e Imagens (*.*)")
+                    );
+                    if (path.isEmpty()) return;
+                    QString txt = ImportDocDialog::extractText(path, err);
+                    if (!err.isEmpty() || txt.isEmpty()) return;
+                    auto* ned = mainWindow.findChild<NoteEditorWidget*>();
+                    if (ned) ned->appendText(txt);
+                }},
+                {"📤", QObject::tr("Exportar Nota"),
+                 QObject::tr("Exportar"), {},
+                 QObject::tr("Exporta a nota como .txt ou .cfdmnote (AES-256-GCM criptografado)."),
+                 [&mainWindow, getDb, getEntry]() {
+                    auto db = getDb(); auto* entry = getEntry();
+                    if (entry && db) ExportNoteDialog::exportNote(entry, db, &mainWindow);
+                }},
+                // ── Lembrete ──────────────────────────────────────────────────
+                {"🔔", QObject::tr("Definir Lembrete"),
+                 QObject::tr("Organização"), "Ctrl+Shift+R",
+                 QObject::tr("Configura data/hora, recorrência e notificação para a entrada."),
+                 [&mainWindow, getDb, getEntry]() {
+                    auto db = getDb(); auto* entry = getEntry();
+                    if (entry && db) ReminderDialog::editReminder(entry, db, &mainWindow);
+                }},
+                // ── Glossário ─────────────────────────────────────────────────
+                {"📚", QObject::tr("Glossário / Seção do Saber"),
+                 QObject::tr("Conhecimento"), "Ctrl+Shift+K",
+                 QObject::tr("Glossário pessoal com termos, definições e tags."),
+                 [&mainWindow, getDb, getEntry]() {
+                    auto db = getDb(); auto* entry = getEntry();
+                    GlossaryDialog::showGlossary(entry, db, &mainWindow);
+                }},
+                // ── Aparência ─────────────────────────────────────────────────
+                {"🎨", QObject::tr("Personalizar Aparência"),
+                 QObject::tr("Aparência"), "Ctrl+Shift+P",
+                 QObject::tr("Cores de fundo, texto, destaque, fonte e peso por área."),
+                 [&app, &mainWindow]() {
+                    auto* dlg = new AppearanceDialog(&app, &mainWindow);
+                    QObject::connect(dlg, &AppearanceDialog::resetRequested, [&app]() {
+                        ThemeManager::apply(ThemeManager::Theme::NavyBlue, &app);
+                    });
+                    dlg->exec(); dlg->deleteLater();
+                }},
+                {"🖼", QObject::tr("Gerenciar Ícones"),
+                 QObject::tr("Aparência"), {},
+                 QObject::tr("Substitua ícones dos menus, toolbar e app por imagens personalizadas."),
+                 [&app, &mainWindow]() {
+                    auto* dlg = new IconThemeDialog(&app, &mainWindow, &mainWindow);
+                    dlg->exec(); dlg->deleteLater();
+                }},
+                // ── Manual ────────────────────────────────────────────────────
+                {"📖", QObject::tr("Manual de Consulta"),
+                 QObject::tr("Ajuda"), "F1",
+                 QObject::tr("Manual integrado com índice, busca e renderização Markdown."),
+                 [&mainWindow]() {
+                    ManualDialog::showManual(&mainWindow);
+                }},
+                {"📊", QObject::tr("Informações dos Bancos"),
+                 QObject::tr("Banco"), "Ctrl+Shift+I",
+                 QObject::tr("Tabela com tamanho, entradas, datas de criação e modificação."),
+                 [&mainWindow]() {
+                    DatabaseInfoDialog::showInfo(&mainWindow, &mainWindow);
+                }},
+            };
+
+            auto* dlg = new FeatureSearchDialog(features, &mainWindow);
+            dlg->exec();
+            dlg->deleteLater();
+        };
+
+        QObject::connect(btnSearch, &QToolButton::clicked, &mainWindow,
+                         [openFeatureSearch]() { openFeatureSearch(); });
+        tb->addWidget(btnSearch);
+
+        // Atalho global Ctrl+K
+        auto* actFeatureSearch = new QAction(&mainWindow);
+        actFeatureSearch->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_K));
+        actFeatureSearch->setShortcutContext(Qt::ApplicationShortcut);
+        QObject::connect(actFeatureSearch, &QAction::triggered,
+                         &mainWindow, [openFeatureSearch]() { openFeatureSearch(); });
+        mainWindow.addAction(actFeatureSearch);
     });
 
     // ── Tema automático: volta ao Navy Blue quando cofre é fechado ────────────

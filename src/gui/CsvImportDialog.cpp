@@ -206,11 +206,46 @@ void CsvImportDialog::doImport(const QString& csvPath)
     // ── Grupo destino ─────────────────────────────────────────────────────
     auto* root = m_db->rootGroup();
 
-    // Cache de grupos por nome (cria se não existir)
+    // Cache de grupos por caminho completo (suporta hierarquia "Root/Pessoal/YouTube")
+    // Chave = caminho normalizado (ex: "Pessoal/YouTube"), valor = ponteiro para Group
     QHash<QString, Group*> groupCache;
+
+    // Pré-popula cache com filhos imediatos da raiz
     for (auto* g : root->children()) {
         groupCache[g->name()] = g;
     }
+
+    // Função auxiliar: resolve ou cria grupo por caminho hierárquico
+    // "Root/Pessoal/YouTube" → cria Root→Pessoal→YouTube se necessário
+    // Ignora o primeiro segmento se igual ao nome da raiz (ex: "Root")
+    auto resolveGroup = [&](const QString& rawPath) -> Group* {
+        if (rawPath.isEmpty()) return root;
+
+        QStringList parts = rawPath.split('/', Qt::SkipEmptyParts);
+
+        // Remove primeiro segmento se for igual ao nome da raiz
+        if (!parts.isEmpty() && parts.first() == root->name())
+            parts.removeFirst();
+
+        if (parts.isEmpty()) return root;
+
+        Group* current = root;
+        QString cacheKey;
+
+        for (const QString& part : parts) {
+            cacheKey = cacheKey.isEmpty() ? part : (cacheKey + '/' + part);
+
+            if (!groupCache.contains(cacheKey)) {
+                auto* newGroup = new Group();
+                newGroup->setUuid(QUuid::createUuid());
+                newGroup->setName(part);
+                newGroup->setParent(current);
+                groupCache[cacheKey] = newGroup;
+            }
+            current = groupCache[cacheKey];
+        }
+        return current;
+    };
 
     // ── Importação em lotes ───────────────────────────────────────────────
     static const int BATCH = 200;
@@ -233,19 +268,9 @@ void CsvImportDialog::doImport(const QString& csvPath)
         const QString title = getField(colTitle);
         if (title.isEmpty()) { ++skipped; continue; }
 
-        // Resolve grupo
-        Group* targetGroup = root;
-        const QString groupName = getField(colGroup);
-        if (!groupName.isEmpty() && groupName != root->name()) {
-            if (!groupCache.contains(groupName)) {
-                auto* newGroup = new Group();
-                newGroup->setUuid(QUuid::createUuid());
-                newGroup->setName(groupName);
-                newGroup->setParent(root);
-                groupCache[groupName] = newGroup;
-            }
-            targetGroup = groupCache[groupName];
-        }
+        // Resolve grupo (suporta hierarquia "Root/Pessoal/YouTube")
+        const QString groupPath = getField(colGroup);
+        Group* targetGroup = resolveGroup(groupPath);
 
         // Cria entrada
         auto* entry = new Entry();

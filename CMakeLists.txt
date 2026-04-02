@@ -66,6 +66,14 @@ set(CFDMNOTE_SRCS
     src/gui/VoiceCommandDialog.cpp
     src/gui/GlossaryDialog.cpp
     src/gui/MergeGroupDialog.cpp
+    src/gui/KdbxImportDialog.cpp
+    src/gui/ImportDocDialog.cpp
+    src/gui/AppearanceDialog.cpp
+    src/gui/IconThemeDialog.cpp
+    src/gui/FeatureSearchDialog.cpp
+    src/gui/AttachmentsPanelWidget.cpp
+    src/gui/CreationDialog.cpp
+    src/gui/PersonalAssistantDialog.cpp
     src/gui/DependencyCheckDialog.cpp
     src/gui/ToastNotification.cpp
     src/gui/NoteEditorWidget.cpp
@@ -110,3 +118,57 @@ target_link_libraries(cfdmnote PRIVATE
 )
 
 install(TARGETS cfdmnote DESTINATION bin)
+
+# ─── Desktop integration (ícone + .desktop com versão) ───────────────────────
+# Lê a versão de CfdmVersion.h
+file(STRINGS "${CMAKE_SOURCE_DIR}/src/CfdmVersion.h" _ver_line
+     REGEX "#define CFDMNOTE_VERSION")
+string(REGEX REPLACE ".*\"([0-9]+\\.[0-9]+\\.[0-9]+)\".*" "\\1"
+       CFDMNOTE_VERSION "${_ver_line}")
+
+set(CFDMNOTE_EXEC "${CMAKE_BINARY_DIR}/cfdmnote")
+
+# Gera o .desktop com versão e caminho do executável
+configure_file(
+    "${CMAKE_SOURCE_DIR}/package/cfdmnote.desktop.in"
+    "${CMAKE_BINARY_DIR}/cfdmnote.desktop"
+    @ONLY
+)
+
+# Após o build principal: copia ícone e .desktop para ~/.local/share/
+set(_ICONS_DIR "${CMAKE_SOURCE_DIR}/resources/icons")
+set(_DESKTOP_DST "$ENV{HOME}/.local/share/applications/cfdmnote.desktop")
+
+add_custom_target(deploy-desktop ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$ENV{HOME}/.local/share/icons/hicolor/16x16/apps"
+            "$ENV{HOME}/.local/share/icons/hicolor/32x32/apps"
+            "$ENV{HOME}/.local/share/icons/hicolor/48x48/apps"
+            "$ENV{HOME}/.local/share/icons/hicolor/64x64/apps"
+            "$ENV{HOME}/.local/share/icons/hicolor/128x128/apps"
+            "$ENV{HOME}/.local/share/icons/hicolor/256x256/apps"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_ICONS_DIR}/cfdmnote_16.png"
+            "$ENV{HOME}/.local/share/icons/hicolor/16x16/apps/cfdmnote.png"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_ICONS_DIR}/cfdmnote_32.png"
+            "$ENV{HOME}/.local/share/icons/hicolor/32x32/apps/cfdmnote.png"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_ICONS_DIR}/cfdmnote_48.png"
+            "$ENV{HOME}/.local/share/icons/hicolor/48x48/apps/cfdmnote.png"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_ICONS_DIR}/cfdmnote_64.png"
+            "$ENV{HOME}/.local/share/icons/hicolor/64x64/apps/cfdmnote.png"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_ICONS_DIR}/cfdmnote_128.png"
+            "$ENV{HOME}/.local/share/icons/hicolor/128x128/apps/cfdmnote.png"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${_ICONS_DIR}/cfdmnote_256.png"
+            "$ENV{HOME}/.local/share/icons/hicolor/256x256/apps/cfdmnote.png"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_BINARY_DIR}/cfdmnote.desktop" "${_DESKTOP_DST}"
+    COMMAND ${CMAKE_COMMAND} -E echo
+            "Desktop instalado: CfdmNote ${CFDMNOTE_VERSION}"
+    DEPENDS cfdmnote
+    COMMENT "Instalando ícone diamante e .desktop (v${CFDMNOTE_VERSION})"
+)

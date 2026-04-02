@@ -383,6 +383,39 @@
 
 ---
 
+## Sessão 21 — Importar Documentos e Imagens como Notas (v2.5.2)
+**Data:** 2026-03-24
+**Versão:** v2.5.2
+
+### Feature: ImportDocDialog — multi-formato + OCR
+- `ImportDocDialog.h/.cpp` criados do zero
+- Formatos suportados:
+  - `.txt`, `.md`, `.log`, `.csv` → QFile direto
+  - `.pdf` → `pdftotext -layout` (poppler-utils)
+  - `.docx` → `unzip -p word/document.xml` + stripXmlTags
+  - `.odt` → `unzip -p content.xml` + stripXmlTags
+  - `.rtf` → `unrtf --text`
+  - `.html`, `.htm` → stripHtmlTags (regex Qt)
+  - `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tif`, `.tiff`, `.webp`, `.gif` → **OCR via tesseract**
+- `extractText()` movido para `public static` → reutilizável no botão da aba Notas
+- Seletor de grupo destino com QComboBox indentado por profundidade
+- Progresso real por arquivo (QProgressBar)
+- Menu CfdmNote: "Importar TXT" substituído por "Importar Documentos / Imagens..."
+
+### Feature: Botão na aba Notas
+- Mini-toolbar adicionada na aba Notas: `📄 Importar Documento / Imagem`
+- Importa um arquivo e **acrescenta** o texto ao final da nota da entrada selecionada
+- Prefixo `📄 *Importado de: nome-do-arquivo*` inserido antes do conteúdo
+- Botão desabilitado quando nenhuma entrada está selecionada
+
+### Decisões técnicas
+- `extractImage()` usa `tesseract <input> stdout -l por+eng` com fallback para só `eng`
+- `.webp` e `.gif` convertidos para PNG temporário via ImageMagick (`convert`) antes do OCR
+- Lambda do botão usa `dbWidget->findChild<NoteEditorWidget*>()` (não captura `noteEditor` diretamente — declarado depois no mesmo escopo)
+- `stripXmlTags()` e `stripHtmlTags()` usam QRegularExpression puro, sem dependências externas
+
+---
+
 ## Sessão 20 — Importar Grupo entre Bancos (v2.5.1)
 **Data:** 2026-03-24
 **Versão:** v2.5.1
@@ -459,6 +492,121 @@ Usuário gravava áudio mas transcrição não funcionava. Causa raiz: o binári
 - **Nunca perguntar "posso prosseguir?"** — executar diretamente se o próximo passo é claro
 - **Aplica a todos os projetos** — não só ao CfdmNote
 - **Proceed = Always Yes** é regra global, permanente, sem exceção para confirmações óbvias
+
+---
+
+## Sessão 17 — AudioCaptureDialog v2 + Diamond Branding + ImportDocDialog (v2.6.0)
+**Data:** 2026-03-24
+**Versão:** v2.6.0
+
+### O que foi feito
+
+#### ImportDocDialog (importar docs e imagens como nota)
+- Novo `src/gui/ImportDocDialog.h/.cpp`: importa `.txt`, `.pdf`, `.docx`, `.odt`, `.rtf`, `.html`, `.htm` e imagens (PNG/JPG/BMP/TIFF/WEBP/GIF)
+- `extractText()` público e estático — despachador por extensão
+- Ferramentas externas: `pdftotext`, `unzip` + parse XML (docx/odt), `unrtf`, para cada formato
+- Imagens: `tesseract input stdout -l por+eng` com fallback para `eng`; WEBP/GIF → PNG temp via `convert` (ImageMagick) antes do OCR
+- `stripXmlTags()` e `stripHtmlTags()` com `QRegularExpression` — zero dependências extra
+- Texto importado via `ned->appendText()` (evita crash com `entry->setNotes()` + `db->save()`)
+- Caminho do arquivo original adicionado automaticamente à aba Links via `linksPanel->addExternalLink()`
+
+#### Fix crash no import
+- Root cause: `entry->setNotes()` + `db->save()` conflitavam com sinais internos do KeePassXC
+- Solução: `NoteEditorWidget::appendText()` — passa pelo NoteManager SQLite, sem `db->save()` direto
+
+#### Fix aba Links
+- Seções sobrepostas: substituído `setFixedHeight(110)` por `QSplitter(Qt::Vertical)` com `setCollapsible(false)`
+- Scrollbar e seta para baixo agora funcionam corretamente
+- Ícones por tipo de arquivo: `QMimeDatabase::mimeTypeForFile()` + `QIcon::fromTheme(mime.iconName())`
+
+#### Diamond Branding (ícones CFDM Holding)
+- Todos os ícones substituídos pelo estilo diamante CFDM Holding
+- `cfdmnote.svg` — fundo escuro circular, diamante brilhante (Table/Girdle/Culet em 256px), anel orbital, sparkles
+- `diamond_toolbar.svg`, `diamond_tray.svg`, `diamond_animated.svg` criados
+- `diamond_logo_animated.gif` — 24 frames via Python+Inkscape+ImageMagick (112KB)
+- PNGs em todas as resoluções: 16/32/48/64/128/256px
+- `resources/manual.qrc` atualizado com todos os ícones
+
+#### AudioCaptureDialog v2 (reescrita completa)
+- **WaveformWidget**: lê últimos 3200 bytes do WAV em crescimento, calcula RMS de samples S16_LE, barras coloridas (ciano/amarelo/vermelho/escuro), indicador REC piscante, timer 120ms
+- **SpellHighlighter**: `QSyntaxHighlighter` com `aspell -a` em pipe persistente; sublinha palavras desconhecidas; menu contexto com sugestões
+- **Layout novo**: Waveform + info arquivo + transcrição + spell toolbar + seção IA (5 botões stub → CFDM Triplex Feature 012)
+- **updateFileInfo()**: tamanho em MB + duração estimada do WAV
+
+### Fix de compilação desta sessão
+- `qSqrt` exigia `#include <QtMath>` — adicionado no topo de AudioCaptureDialog.cpp
+
+---
+
+## Sessão 18 — AppearanceDialog + IconThemeDialog (v2.7.0)
+**Data:** 2026-03-24
+**Versão:** v2.7.0
+
+### O que foi feito
+
+#### CfdmNote-Icones_ — pasta de ícones para edição
+- Todos os ícones copiados para `/home/cfdm/Proj-CFDM-NOTE_/CfdmNote-Icones_/`
+- SVGs, PNGs e GIFs para fácil edição e criação de variantes
+
+#### IconThemeDialog — gerenciar ícones
+- `src/gui/IconThemeDialog.h/.cpp`: lista todos os ícones com preview 40x40
+- Grupos: App (6 resoluções), Toolbar/IA, Tray/Animações
+- **Trocar** → QFileDialog → copia para `~/.config/cfdmnote/icons/`
+- **Restaurar** por ícone (desfaz override individual)
+- **Restaurar Todos** → limpa pasta de overrides
+- `IconThemeDialog::icon()` — user folder primeiro, QRC fallback
+
+#### AppearanceDialog — personalizar cores e fonte
+- `src/gui/AppearanceDialog.h/.cpp`: 4 color pickers + QFontComboBox + QSpinBox
+- Cores: Fundo, Toolbar, Texto, Destaque
+- Preview inline em tempo real
+- **Prévia** aplica no app sem salvar; **Aplicar e Salvar** persiste em QSettings
+- **Restaurar Padrão** volta ao NavyBlue
+- `buildQss()` gera QSS completo (~30 seletores) a partir de 4 cores base
+- Startup: `AppearanceDialog::applySaved()` carrega tema customizado se salvo
+
+#### Acesso via clique direito
+- Clique direito na janela principal → menu contextual: Personalizar / Gerenciar Ícones / atalhos de tema
+- Menu CfdmNote → 🎨 Tema de Cores → Personalizar Aparência / Gerenciar Ícones
+
+---
+
+## Sessão 17 — Importar .kdbx Externo + Fix CSV Hierárquico (v2.10.1)
+**Data:** 2026-04-02
+
+### Problema relatado
+Dificuldade em importar dados de `.kdbx` antigo para o CfdmNote.
+Dois problemas identificados: rota CSV com grupos hierárquicos quebrada, e ausência de importação direta de `.kdbx` com senha.
+
+### Features implementadas ✅
+
+#### KdbxImportDialog — nova feature (Ctrl+Shift+K)
+- `src/gui/KdbxImportDialog.h/.cpp` — novo arquivo
+- Abre qualquer `.kdbx` externo diretamente (sem abrir nas abas do app)
+- Suporte a senha opcional + arquivo chave opcional
+- Importa todos os grupos e entradas **recursivamente** com hierarquia preservada
+- Pula a Lixeira do banco de origem (`metadata()->recycleBin()`)
+- Acesso: Menu CfdmNote → "📂 Importar .kdbx Externo..." (Ctrl+Shift+K)
+
+**Técnico:**
+- `Database::create(path)` + `db->open(key, &error)` — mesmo padrão do VaultUnlockDialog
+- `importGroupRecursive()` — clona entradas via `Entry::clone(Entry::CloneNewUuid)`, cria grupos com `new Group()` e `setParent()`
+- `Group::setIcon(int)` para preservar ícone do grupo de origem
+
+#### Fix CsvImportDialog — grupos hierárquicos
+- Função `resolveGroup(QString rawPath)` substituiu o lookup plano anterior
+- Parse do caminho por `/` com `Qt::SkipEmptyParts`
+- Remove primeiro segmento se igual ao nome da raiz ("Root")
+- Cache por caminho completo: `"Pessoal/YouTube"` como chave
+- Resultado: `"Root/Pessoal/YouTube"` → cria estrutura `Root → Pessoal → YouTube`
+
+### Rename: Triplex → Cfdm Nexus
+- "CFDM Triplex" e "CFDM AI OS TRIPLEX" → novo nome oficial: **Cfdm Nexus**
+- Atualizado em: CLAUDE.md, MEMORY.md, roadmap, relatórios dos 3 projetos
+
+### Fluxo recomendado: antigo .kdbx → CfdmNote
+**Opção A (preferencial):** Menu CfdmNote → 📂 Importar .kdbx Externo... → senha → Importar
+**Opção B (CSV):** KeePassXC → Database → Export CSV → CfdmNote → Importar CSV
 
 ---
 

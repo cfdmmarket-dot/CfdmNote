@@ -36,7 +36,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 3. Atualizar CLAUDE.md (arquitetura + arquivos novos)
 4. git commit com mensagem `feat(vX.Y.Z): descrição`
 
-## Versão atual: v2.2.8
+## Versão atual: v2.10.1
 ### Features confirmadas
 - [x] v1.0.x — Base KeePassXC compilável + branding CfdmNote
 - [x] v1.1.0 — Banco principal auto-open (sem senha), AppLockDialog, VaultUnlockDialog
@@ -95,7 +95,7 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v2.2.3 — Fix: MindMapDialog carrega HTML via arquivo temporário (file://) em vez de setHtml(qrc:/) — Chromium tem origin real ✓
 - [x] v2.2.4 — Criar Grupo: atalho Ctrl+Shift+G ✓
 - [x] v2.2.4 — Mover Grupo: novo item no menu CfdmNote — seleciona grupo e destino com validação de ciclo ✓
-- [x] v2.2.4 — Botão toolbar: ⚡ CfdmNote → 🤖 IA (reservado para CFDM Triplex, exibe info da feature 012) ✓
+- [x] v2.2.4 — Botão toolbar: ⚡ CfdmNote → 🤖 IA (reservado para Cfdm Nexus, exibe info da feature 012) ✓
 - [x] v2.2.5 — Fix: overlay "Aguarde" não aparece mais ao abrir banco (removida conexão actionImport sem close, adicionado failsafe hide 3s) ✓
 - [x] v2.2.6 — Fix: NavyBlue toolbar escura com texto/ícones brancos (fundo #1e3a5f, cor #ffffff) ✓
 - [x] v2.2.8 — Fix: NavyBlue toolbar azul médio (#4a7fb5) — ícones KeePassXC visíveis + texto branco ✓
@@ -104,6 +104,8 @@ Tudo extra é adicionado via QTabWidget, QMenu, QSplitter ou extensão não inva
 - [x] v2.2.0 — Git inicializado com histórico completo desde v1.0.0 ✓
 - [x] v1.5.0 — ReminderManager: verifica a cada 60s, reagenda recorrentes, adiar 1h/8h ✓
 - [x] v1.5.0 — Google Calendar: botão abre browser com evento pré-preenchido (sem OAuth) ✓
+- [x] v2.10.1 — KdbxImportDialog (Ctrl+Shift+K): importar .kdbx externo com senha/chave, preserva hierarquia de grupos ✓
+- [x] v2.10.1 — Fix CsvImportDialog: grupos hierárquicos KeePassXC ("Root/Pessoal/YouTube") criados corretamente ✓
 
 ## Arquitetura atual
 ```
