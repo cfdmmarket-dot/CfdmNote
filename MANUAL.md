@@ -1,5 +1,5 @@
 # CfdmNote — Manual de Consulta
-**Versão 2.5.1** · Atualizado em 2026-03-24 · Plataforma Linux · C++17 + Qt5
+**Versão 2.10.1** · Atualizado em 2026-04-04 · Plataforma Linux · C++17 + Qt5
 
 > 💡 **Como saber se o manual está atualizado:** a versão acima deve coincidir com a versão exibida na tela de login. Se for diferente, o manual está desatualizado para essa release.
 
@@ -39,6 +39,7 @@
 30. [Aba Links — Abrir com Programa](#30-aba-links--abrir-com-programa)
 31. [Seção do Saber — Glossário Pessoal](#31-seção-do-saber--glossário-pessoal)
 32. [Importar Grupo entre Bancos](#32-importar-grupo-entre-bancos)
+33. [Importar Banco .kdbx Externo](#33-importar-banco-kdbx-externo)
 
 ---
 
@@ -844,6 +845,54 @@ Para mais precisão em PT-BR, considere usar `small` ou `medium` no `AudioCaptur
 
 ---
 
+## 28. Capturar Áudio v2 — Waveform e Corretor Ortográfico
+
+**Acesso:** `Ctrl+Shift+A` · Menu CfdmNote → 🎙 Capturar Áudio
+
+O AudioCapture foi completamente reescrito na v2.6.0 com novos recursos visuais.
+
+### Waveform em tempo real
+Durante a gravação, barras coloridas mostram o nível do som:
+
+| Cor | Significado |
+|-----|-------------|
+| Ciano | Nível normal — microfone captando bem |
+| Amarelo | Volume alto |
+| Vermelho | Clipping (distorção) ou silêncio prolongado |
+| Escuro | Silêncio |
+
+O indicador **● REC** pisca enquanto a gravação estiver ativa.
+
+### Informações do arquivo
+Abaixo do waveform aparece: caminho do arquivo WAV, tamanho em MB e duração estimada.
+
+### Corretor ortográfico
+Após transcrever, o texto é exibido com **sublinhado vermelho** nas palavras desconhecidas (requer `aspell` instalado).
+
+- Clique com o **botão direito** sobre uma palavra sublinhada para ver sugestões
+- Clique na sugestão para substituir automaticamente
+- **Verificar Ortografia** no toolbar re-analisa o texto completo
+
+### Seção IA (CFDM Triplex — em breve)
+Cinco botões de geração disponíveis:
+
+| Botão | O que fará |
+|-------|-----------|
+| 📖 Gerar Ebook | Estrutura o texto como ebook completo |
+| 🎧 Gerar Audiobook | Roteiro otimizado para narração |
+| 💎 Produto Digital | Plano de produto digital a partir da fala |
+| ✍ Escrever Texto | Expande e melhora o texto transcrito |
+| 📋 Resumo | Condensa o conteúdo em pontos principais |
+
+> ⚠ **Requer CFDM Triplex (Feature 012)** — ainda não disponível nesta versão. Os botões exibirão uma mensagem informativa até a integração ser publicada.
+
+### Dependências necessárias
+```
+sudo apt install aspell aspell-pt
+```
+
+---
+
 ## 27. Verificador de Dependências
 
 **Acesso:** Menu CfdmNote → 🔍 Verificar Dependências · aparece automaticamente na primeira execução
@@ -867,7 +916,11 @@ O verificador inspeciona todos os programas auxiliares necessários para as feat
 | `whisper-cli` | Transcrição alternativa (mais rápida) | Ver whisper.cpp no GitHub |
 | `ffmpeg` | Conversão de formatos de áudio | `sudo apt install ffmpeg` |
 | `xclip` | Área de transferência (clipboard) | `sudo apt install xclip` |
-| `tesseract-ocr` | OCR — texto em imagens (feature futura) | `sudo apt install tesseract-ocr` |
+| `tesseract-ocr` | OCR — texto em imagens (ImportDocDialog) | `sudo apt install tesseract-ocr tesseract-ocr-por` |
+| `aspell` | Corretor ortográfico no AudioCapture | `sudo apt install aspell aspell-pt` |
+| `pdftotext` (poppler) | Importar PDF como nota | `sudo apt install poppler-utils` |
+| `unrtf` | Importar RTF como nota | `sudo apt install unrtf` |
+| `imagemagick` | Converter WEBP/GIF para OCR | `sudo apt install imagemagick` |
 
 ### Instalar tudo de uma vez
 Clique em **📋 Copiar comandos faltando** — todos os comandos necessários são copiados para o clipboard. Cole no terminal e execute.
@@ -965,7 +1018,14 @@ Todas as funcionalidades implementadas, organizadas por versão. Atualize esta s
 | v2.4.4 | Fix: whisper-cli ✅ quando openai-whisper está instalado | — |
 | v2.4.5 | Fix: transcrição de áudio — detecta ~/.local/bin/whisper, feedback em tempo real | — |
 | v2.5.0 | Seção do Saber — Glossário pessoal (Ctrl+Shift+K) | Ctrl+Shift+K |
-| **v2.5.1** | **Importar Grupo entre Bancos .kdbx — merge recursivo completo** | **Ctrl+Shift+M** |
+| v2.5.1 | Importar Grupo entre Bancos .kdbx — merge recursivo completo | Ctrl+Shift+M |
+| v2.6.0 | Importar Documento/Imagem como nota (PDF/DOCX/ODT/RTF/HTML/OCR) | botão na aba Notas |
+| v2.6.0 | AudioCapture v2 — waveform tempo real, info do arquivo, corretor ortográfico (aspell) | Ctrl+Shift+A |
+| v2.6.0 | AudioCapture — seção IA (Ebook/Audiobook/Produto Digital/Texto/Resumo via CFDM Triplex) | — |
+| v2.6.0 | Ícones diamante CFDM Holding em todas as resoluções | — |
+| **v2.6.0** | **Ícone do desktop com versão (atualiza automaticamente a cada build)** | — |
+| v2.10.1 | Importar Banco `.kdbx` Externo — com senha/arquivo chave, preserva hierarquia | Ctrl+Shift+K |
+| v2.10.1 | Fix CsvImportDialog — grupos hierárquicos KeePassXC criados corretamente | — |
 
 > 💡 Esta tabela é atualizada a cada nova funcionalidade. A versão no cabeçalho deste manual confirma que está sincronizado com a release atual.
 
@@ -1098,5 +1158,40 @@ Copia um grupo completo (com todos os subgrupos e entradas) de qualquer banco `.
 
 ---
 
-*CfdmNote v2.5.1 — Desenvolvido por CFDM*
-*Manual atualizado em 2026-03-24*
+## 33. Importar Banco `.kdbx` Externo
+
+Importa um banco KeePass/KeePassXC externo (`.kdbx`) diretamente para o banco principal do CfdmNote, preservando toda a hierarquia de grupos.
+
+**Abrir:** Menu CfdmNote → 📥 Importar Banco .kdbx... · Atalho: `Ctrl+Shift+K`
+
+### Como usar
+
+1. Acesse **Menu CfdmNote → 📥 Importar Banco .kdbx...**
+2. Clique em **Selecionar arquivo** e escolha o arquivo `.kdbx`
+3. Se o banco tiver senha, insira no campo **Senha**
+4. Se usar arquivo chave, clique em **Arquivo chave** e selecione
+5. Clique **Importar** — o progresso aparece em tempo real
+6. Ao finalizar, os grupos e entradas aparecem no banco principal
+
+### O que é importado
+
+| Item | Comportamento |
+|------|---------------|
+| Grupos (todos os níveis) | Hierarquia preservada integralmente |
+| Entradas | Título, usuário, senha, URL, notas, campos extras |
+| IDs (UUIDs) | Novos IDs gerados — sem conflito |
+| Banco principal | Salvo automaticamente após importação |
+
+### Diferença em relação à seção 32
+
+| Recurso | Seção 32 (Importar Grupo) | Seção 33 (Importar Banco) |
+|---------|--------------------------|--------------------------|
+| Origem | Banco já aberto no CfdmNote | Arquivo `.kdbx` externo |
+| Autenticação | Não necessária (já aberto) | Senha e/ou arquivo chave |
+| Escopo | Um grupo específico | Banco completo |
+| Atalho | `Ctrl+Shift+M` | `Ctrl+Shift+K` |
+
+---
+
+*CfdmNote v2.10.1 — Desenvolvido por CFDM Holding*
+*Manual atualizado em 2026-04-04*
