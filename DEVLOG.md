@@ -7,6 +7,16 @@
 
 ---
 
+## Sessão — AppImage v2.10.1 + make-appimage.sh fix (2026-04-09)
+
+### O que foi feito
+- `make-appimage.sh` corrigido: flags `--appimage-extract-and-run` no linuxdeploy e no appimagetool — elimina necessidade de FUSE instalado no host
+- `CfdmNote-2.10.1-linux-x86_64.AppImage` gerado com sucesso (41MB, todas as libs Qt5 bundled)
+- `cfdm-start.sh note` no launcher central abre o AppImage automaticamente
+- AppImage executável: `chmod +x CfdmNote-2.10.1-linux-x86_64.AppImage && ./CfdmNote-2.10.1-linux-x86_64.AppImage`
+
+---
+
 ## Sessão 01 — Fundação (v1.0.x)
 **Data estimada:** 2026-01-xx
 
@@ -610,5 +620,73 @@ Dois problemas identificados: rota CSV com grupos hierárquicos quebrada, e aus�
 
 ---
 
+## Sessão 18 — Branding CFDM Holding + Fix Banner KeePassXC + Desktop Versionado (v2.10.1)
+**Data:** 2026-03-30
+
+### Problemas resolvidos ✅
+
+#### Fix: Banner "KeePassXC 2.8.0 unstable build" persistente
+- **Causa raiz:** `KEEPASSXC_BUILD_TYPE=Snapshot` no CMakeCache gerava `KEEPASSXC_BUILD_TYPE_SNAPSHOT` — ativava o banner via `globalMessageWidget`
+- **Solução dupla:**
+  1. `CMakeLists.txt`: `set(KEEPASSXC_BUILD_TYPE "Release" CACHE STRING "" FORCE)` — elimina o define na compilação
+  2. `main.cpp`: `config()->set(Config::Messages_HidePreReleaseWarning, QString(KEEPASSXC_VERSION))` antes do AppLockDialog — suprime runtime
+- **Resultado:** banner nunca mais aparece
+
+#### Versionamento no atalho Desktop
+- `package/cfdmnote.desktop.in`: `Name=CfdmNote v@CFDMNOTE_VERSION@` + `Comment=CfdmNote v@CFDMNOTE_VERSION@ — KeePassXC + Markdown — CFDM Holding`
+- `CMakeLists.txt`: `deploy-desktop` copia `.desktop` gerado para `~/Desktop/CfdmNote.desktop` além de `~/.local/share/applications/`
+- **Resultado:** botão na área de trabalho sempre mostra a versão atual (auto-atualiza a cada build)
+
+### Branding CFDM Holding ✅
+
+#### Logo CFDM Holding em todos os produtos
+- `resources/icons/cfdm-holding-logo.png` — copiado de `CfdmNote-Fotos-Imagens_/Logos/CfdmHolding-logo-Image .png`
+- `resources/manual.qrc` — logo embedded no binário via QRC: `<file alias="cfdm-holding-logo.png">icons/cfdm-holding-logo.png</file>`
+
+#### AppLockDialog (tela de login)
+- Layout dual-logo: diamante CfdmNote (64×64) + CFDM Holding (90×64) lado a lado
+- Tenta carregar holding logo do filesystem → fallback QRC
+- Regra: os dois logos sempre juntos, nunca substituindo
+
+#### Diálogo "Sobre CfdmNote"
+- Reescrito de `QMessageBox::about()` para `QDialog` customizado
+- Exibe ambos os logos + texto "Um produto CFDM Holding"
+
+#### ManualDialog (Manual F1)
+- Logo CFDM Holding (56×28) no rodapé antes do label de versão
+- Texto da versão: `"CfdmNote v%1 — Manual de Consulta · CFDM Holding"`
+
+#### Cfdm Nexus — web interface
+- `web/templates/index.html`: sidebar — logo CFDM Holding + "Cfdm Nexus" + "CFDM Holding — AI OS"
+- `web/templates/search.html`: header — mesma identidade visual (logo + Cfdm Nexus + subtítulo)
+- Título das páginas: "Cfdm Nexus — CFDM Holding"
+
+### Regra estabelecida (permanente)
+> Em TODOS os produtos CFDM Holding: logo oficial aparece sempre que possível, ao lado do logo do produto — nunca substituindo. Texto padrão: "Um produto CFDM Holding".
+
+---
+
 *CfdmNote DEVLOG — Mantido por Claude Code (Anthropic) + Cfdm Market*
 *Atualizar a cada sessão de desenvolvimento*
+
+---
+
+## Sessão 26 — Bugfix Desktop Files + Investigação Crash CSV (v2.10.1)
+**Data:** 2026-04-02
+
+### Cfdm Nexus — Desktop Files corrigidos
+- **Problema:** `Broken Desktop Files` ao tentar abrir o Cfdm Nexus pelo atalho
+- **Causa:** parênteses `(` e `)` no caminho `Proj-Cfdm-NEXUS-AI-OS-(Triplex )_/` são caracteres reservados no formato `.desktop` — precisavam de escape
+- **Fix:** campo `Exec` corrigido para `\(Triplex\ \)` nos dois arquivos:
+  - `/home/cfdm/Desktop/CfdmNexus.desktop`
+  - `/home/cfdm/.local/share/applications/cfdm-nexus.desktop`
+- `desktop-file-validate` passou sem erros após a correção
+
+### CfdmNote — Investigação crash ao mover grupos importados via CSV
+- **Sintoma:** app fechava subitamente ao mover grupo importado por CSV (ex: "CFDM-UNIVERSE-DIGITAL-GALAX")
+- **Investigação:** analisado o caminho completo `GroupModel::dropMimeData` → `Group::setParent` → `emit aboutToMove` → `GroupModel::groupAboutToMove` → `beginMoveRows` → `Q_ASSERT(moveResult)`
+- **Modo Debug:** `Q_ASSERT` ativo → `abort()` se `beginMoveRows` retorna false
+- **Causa provável:** estado transitório pós-importação CSV; após reabrir o banco o crash cessou
+- **Nota:** NoteManager não tem `openDatabase()` chamado no startup → mensagens "QSqlQuery: database not open" em stderr (falha silenciosa, não causa crash)
+- **Status:** usuário confirmou que está OK após reabrir o banco
+

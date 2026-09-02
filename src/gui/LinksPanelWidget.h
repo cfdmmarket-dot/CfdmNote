@@ -29,6 +29,8 @@ public:
 
     void loadEntry(Entry* entry, const QSharedPointer<Database>& db);
     void clearLinks();
+    // Adiciona um caminho de arquivo como link local (ex.: ao importar documento)
+    void addExternalLink(const QString& filePath);
 
     static const QString KEY_LOCAL;
     static const QString KEY_REMOVABLE;

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CfdmNote — menu/toolbar icon 16x16, estilo CFDM Holding -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <defs>
+    <linearGradient id="c" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="p" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%"   stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+  </defs>
+  <!-- Crown -->
+  <polygon points="2,8  4,2  12,2  14,8"    fill="url(#c)"/>
+  <polygon points="2,8  4,2  4,8"           fill="white"   opacity="0.28"/>
+  <polygon points="12,2 14,8 12,8"          fill="#1e40af" opacity="0.38"/>
+  <!-- Table -->
+  <line x1="4" y1="2" x2="12" y2="2"       stroke="white" stroke-width="1.2" opacity="0.92"/>
+  <!-- Girdle -->
+  <line x1="2" y1="8" x2="14" y2="8"       stroke="#93c5fd" stroke-width="0.8"/>
+  <!-- Crown outline -->
+  <polyline points="2,8 4,2 12,2 14,8"      fill="none" stroke="#60a5fa" stroke-width="0.9"/>
+  <!-- Orbital ring hint -->
+  <ellipse cx="8" cy="10" rx="6" ry="1.5"
+           fill="none" stroke="#3b82f6" stroke-width="1.2" opacity="0.55"/>
+  <!-- Pavilion -->
+  <polygon points="2,8  5,8  8,14"          fill="url(#p)"/>
+  <polygon points="5,8  8,8  8,14"          fill="#1e3a8a" opacity="0.70"/>
+  <polygon points="8,8 11,8  8,14"          fill="#1e3a8a" opacity="0.65"/>
+  <polygon points="11,8 14,8  8,14"         fill="#1d4ed8" opacity="0.60"/>
+  <!-- Pavilion outline -->
+  <polyline points="2,8 8,14 14,8"          fill="none" stroke="#3b82f6" stroke-width="0.9"/>
+  <!-- Sparkle -->
+  <circle cx="5" cy="3.5" r="0.9" fill="white" opacity="0.80"/>
+</svg>

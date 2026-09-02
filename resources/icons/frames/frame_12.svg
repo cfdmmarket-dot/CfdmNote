@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="58%">
+      <stop offset="0%"   stop-color="#1a2a6c"/>
+      <stop offset="100%" stop-color="#080e2a"/>
+    </radialGradient>
+    <linearGradient id="cm" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="40%"  stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="cl" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#eff6ff"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="cr" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#bfdbfe"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+    <linearGradient id="pl" x1="0" y1="0" x2=".7" y2="1">
+      <stop offset="0%"   stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="pr" x1="1" y1="0" x2=".3" y2="1">
+      <stop offset="0%"   stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="pc" x1=".5" y1="0" x2=".5" y2="1">
+      <stop offset="0%"   stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#0c1a4a"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="ringglow" x="-10%" y="-120%" width="120%" height="340%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <circle cx="128" cy="128" r="124" fill="url(#bg)"/>
+  <circle cx="128" cy="128" r="121" fill="none" stroke="#1e40af" stroke-width="1.5" opacity=".40"/>
+
+  <!-- ring back -->
+  <ellipse cx="128" cy="152" rx="112" ry="28"
+           fill="none" stroke="#3b82f6" stroke-width="7" opacity=".22"/>
+
+  <!-- pavilion -->
+  <polygon points="24,128 76,128 128,220"  fill="url(#pl)" opacity=".93"/>
+  <polygon points="76,128 128,128 128,220" fill="url(#pc)" opacity=".84"/>
+  <polygon points="128,128 180,128 128,220" fill="url(#pc)" opacity=".80"/>
+  <polygon points="180,128 232,128 128,220" fill="url(#pr)" opacity=".90"/>
+  <line x1="76"  y1="128" x2="128" y2="220" stroke="white" stroke-width=".8" opacity=".20"/>
+  <line x1="128" y1="128" x2="128" y2="220" stroke="white" stroke-width="1.2" opacity=".28"/>
+  <line x1="180" y1="128" x2="128" y2="220" stroke="white" stroke-width=".8" opacity=".20"/>
+  <polyline points="24,128 128,220 232,128" fill="none" stroke="#60a5fa" stroke-width="1.8" opacity=".65"/>
+
+  <!-- ring front animated -->
+  <ellipse cx="128" cy="152" rx="112" ry="28"
+           fill="none" stroke="#4a90d9" stroke-width="9" opacity=".65"/>
+  <ellipse cx="128" cy="152" rx="112" ry="28"
+           fill="none" stroke="white" stroke-width="5"
+           stroke-dasharray="90 285" stroke-dashoffset="-187.5"/>
+  <ellipse cx="128" cy="152" rx="112" ry="28"
+           fill="none" stroke="#93c5fd" stroke-width="11"
+           stroke-dasharray="125.99999999999999 249.0" stroke-dashoffset="-241.5"
+           opacity=".35" filter="url(#ringglow)"/>
+
+  <!-- crown -->
+  <polygon points="24,128 78,38 178,38 232,128"  fill="url(#cm)" opacity=".88"/>
+  <polygon points="24,128 78,38 78,128"           fill="#bfdbfe"  opacity=".36"/>
+  <polygon points="78,38 128,38 128,128 78,128"   fill="#eff6ff"  opacity=".20"/>
+  <polygon points="128,38 178,38 178,128 128,128" fill="#3b82f6"  opacity=".17"/>
+  <polygon points="178,38 232,128 178,128"        fill="#1e40af"  opacity=".42"/>
+  <line x1="78"  y1="38" x2="24"  y2="128" stroke="#93c5fd" stroke-width="1.0" opacity=".38"/>
+  <line x1="128" y1="38" x2="128" y2="128" stroke="white"   stroke-width=".9"  opacity=".26"/>
+  <line x1="178" y1="38" x2="232" y2="128" stroke="#93c5fd" stroke-width="1.0" opacity=".38"/>
+  <polygon points="78,38 178,38 164,54 92,54" fill="white" opacity=".36"/>
+  <line x1="78" y1="38" x2="178" y2="38"     stroke="white" stroke-width="3.0" opacity=".92"/>
+  <polyline points="24,128 78,38 178,38 232,128" fill="none" stroke="#93c5fd" stroke-width="2.0" opacity=".72"/>
+  <line x1="24" y1="128" x2="232" y2="128"      stroke="#bfdbfe" stroke-width="1.8" opacity=".68"/>
+
+  <!-- sparkles (2 alternando via frame par/impar) -->
+  <g transform="translate(68,30)" filter="url(#glow)" opacity="0.45">
+    <line x1="0" y1="-14" x2="0"  y2="14"  stroke="white" stroke-width="2.2"/>
+    <line x1="-14" y1="0" x2="14" y2="0"   stroke="white" stroke-width="2.2"/>
+    <line x1="-9"  y1="-9" x2="9" y2="9"   stroke="white" stroke-width="1.1"/>
+    <line x1="9"  y1="-9" x2="-9" y2="9"   stroke="white" stroke-width="1.1"/>
+  </g>
+  <g transform="translate(194,32)" filter="url(#glow)" opacity="0.05">
+    <line x1="0" y1="-9" x2="0" y2="9"    stroke="#bfdbfe" stroke-width="1.8"/>
+    <line x1="-9" y1="0" x2="9" y2="0"    stroke="#bfdbfe" stroke-width="1.8"/>
+    <line x1="-6" y1="-6" x2="6" y2="6"   stroke="#bfdbfe" stroke-width=".9"/>
+    <line x1="6"  y1="-6" x2="-6" y2="6"  stroke="#bfdbfe" stroke-width=".9"/>
+  </g>
+  <circle cx="100" cy="34" r="3.0" fill="white" opacity=".80" filter="url(#glow)"/>
+  <circle cx="156" cy="32" r="4.0" fill="white" opacity=".65" filter="url(#glow)"/>
+</svg>

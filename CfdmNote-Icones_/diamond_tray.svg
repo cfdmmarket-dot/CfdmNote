@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CfdmNote tray icon 16x16 — silhueta limpa -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <defs>
+    <linearGradient id="c" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="p" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%"   stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+  </defs>
+  <!-- Crown -->
+  <polygon points="1,8  3,1  13,1  15,8" fill="url(#c)"/>
+  <!-- left shade -->
+  <polygon points="1,8  3,1  3,8"        fill="white"   opacity="0.22"/>
+  <!-- right shade -->
+  <polygon points="13,1 15,8 13,8"       fill="#1e40af" opacity="0.38"/>
+  <!-- table -->
+  <line x1="3" y1="1" x2="13" y2="1"    stroke="white" stroke-width="1.4"/>
+  <!-- girdle -->
+  <line x1="1" y1="8" x2="15" y2="8"    stroke="#93c5fd" stroke-width="0.8" opacity="0.70"/>
+  <!-- crown outline -->
+  <polyline points="1,8 3,1 13,1 15,8"   fill="none" stroke="#60a5fa" stroke-width="0.9"/>
+  <!-- Pavilion -->
+  <polygon points="1,8  5,8  8,15"       fill="url(#p)"/>
+  <polygon points="5,8  8,8  8,15"       fill="#1e3a8a" opacity="0.75"/>
+  <polygon points="8,8 11,8  8,15"       fill="#1e3a8a" opacity="0.68"/>
+  <polygon points="11,8 15,8  8,15"      fill="#1d4ed8" opacity="0.60"/>
+  <!-- pavilion outline -->
+  <polyline points="1,8 8,15 15,8"       fill="none" stroke="#3b82f6" stroke-width="0.9"/>
+  <!-- sparkle dot -->
+  <circle cx="5" cy="2.5" r="1.0" fill="white" opacity="0.85"/>
+</svg>

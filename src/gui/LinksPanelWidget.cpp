@@ -10,6 +10,8 @@
 #include <QUrl>
 #include <QMessageBox>
 #include <QScrollArea>
+#include <QSplitter>
+#include <QSizePolicy>
 #include <QApplication>
 #include <QStorageInfo>
 #include <QMenu>
@@ -37,20 +39,20 @@ const QString LinksPanelWidget::KEY_REMOVABLE = "CfdmNote::RemovableLinks";
 LinksPanelWidget::LinksPanelWidget(QWidget* parent)
     : QWidget(parent)
 {
-    auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(8);
-    mainLayout->setContentsMargins(8, 8, 8, 8);
+    // Layout raiz: sem margens, ocupa tudo
+    auto* rootLayout = new QVBoxLayout(this);
+    rootLayout->setContentsMargins(0, 0, 0, 0);
+    rootLayout->setSpacing(0);
 
-    // Título
-    auto* titleLabel = new QLabel(tr("<b>Links da Entrada</b>"));
-    titleLabel->setStyleSheet("font-size: 12px; color: palette(text);");
-    mainLayout->addWidget(titleLabel);
+    // QSplitter vertical — divide espaço entre as duas seções
+    auto* splitter = new QSplitter(Qt::Vertical, this);
+    splitter->setChildrenCollapsible(false);
+    splitter->setHandleWidth(6);
 
-    // Seção Local Disk
-    mainLayout->addWidget(
-        buildSection(tr("Local Disk"), "🖴",
-                     m_localList, m_btnAddLocal, m_btnRemLocal, m_btnOpenLocal)
-    );
+    // ── Seção Local Disk ───────────────────────────────────────────────────
+    auto* localSection = buildSection(tr("Local Disk"), "🖴",
+                                      m_localList, m_btnAddLocal,
+                                      m_btnRemLocal, m_btnOpenLocal);
     {
         auto* menu = new QMenu(m_btnAddLocal);
         menu->addAction(QIcon::fromTheme("folder"), tr("Pasta..."),
@@ -64,12 +66,12 @@ LinksPanelWidget::LinksPanelWidget(QWidget* parent)
     connect(m_localList, &QListWidget::itemDoubleClicked,
             this, [this](QListWidgetItem* item) { openPath(item->data(Qt::UserRole).toString()); });
     setupContextMenu(m_localList);
+    splitter->addWidget(localSection);
 
-    // Seção External / Removable Disk
-    mainLayout->addWidget(
-        buildSection(tr("External / Removable Disk"), "💿",
-                     m_removableList, m_btnAddRemovable, m_btnRemRemovable, m_btnOpenRemovable)
-    );
+    // ── Seção External / Removable Disk ───────────────────────────────────
+    auto* removableSection = buildSection(tr("External / Removable Disk"), "💿",
+                                          m_removableList, m_btnAddRemovable,
+                                          m_btnRemRemovable, m_btnOpenRemovable);
     {
         auto* menu = new QMenu(m_btnAddRemovable);
         menu->addAction(QIcon::fromTheme("folder"), tr("Pasta..."),
@@ -83,8 +85,13 @@ LinksPanelWidget::LinksPanelWidget(QWidget* parent)
     connect(m_removableList, &QListWidget::itemDoubleClicked,
             this, [this](QListWidgetItem* item) { openPath(item->data(Qt::UserRole).toString()); });
     setupContextMenu(m_removableList);
+    splitter->addWidget(removableSection);
 
-    mainLayout->addStretch();
+    // Distribui espaço igual entre as duas seções
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 1);
+
+    rootLayout->addWidget(splitter);
 }
 
 // ─── Constrói seção ───────────────────────────────────────────────────────────
@@ -101,17 +108,21 @@ QWidget* LinksPanelWidget::buildSection(const QString& title,
                        "border: 1px solid palette(mid); border-radius: 4px; "
                        "margin-top: 6px; padding-top: 4px; }"
                        "QGroupBox::title { subcontrol-origin: margin; left: 8px; }");
+    box->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     auto* lay = new QVBoxLayout(box);
     lay->setSpacing(4);
-    lay->setContentsMargins(6, 10, 6, 6);
+    lay->setContentsMargins(6, 14, 6, 6);
 
     listOut = new QListWidget();
-    listOut->setFixedHeight(110);
+    listOut->setMinimumHeight(60);
+    listOut->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     listOut->setAlternatingRowColors(true);
+    listOut->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    listOut->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     listOut->setStyleSheet("QListWidget { font-size: 11px; } "
                             "QListWidget::item { padding: 2px 4px; }");
-    lay->addWidget(listOut);
+    lay->addWidget(listOut, 1);
 
     auto* btnRow = new QHBoxLayout();
     btnRow->setSpacing(4);
@@ -215,10 +226,28 @@ static QString formatDriveInfo(const QString& path)
     return QString("%1\n  └─ %2").arg(driveStr, subPath);
 }
 
+static QIcon iconForPath(const QString& path)
+{
+    const QFileInfo fi(path);
+    if (!fi.exists()) return QIcon::fromTheme("dialog-warning");
+    if (fi.isDir())  return QIcon::fromTheme("folder");
+
+    // Tenta ícone pelo MIME type (ex.: application/pdf → "application-pdf")
+    static QMimeDatabase mimeDb;
+    const QMimeType mime = mimeDb.mimeTypeForFile(path, QMimeDatabase::MatchExtension);
+    QIcon icon = QIcon::fromTheme(mime.iconName());
+    if (!icon.isNull()) return icon;
+
+    // Fallback: ícone genérico do MIME (ex.: "text-x-generic", "image-x-generic")
+    icon = QIcon::fromTheme(mime.genericIconName());
+    if (!icon.isNull()) return icon;
+
+    return QIcon::fromTheme("text-x-generic");
+}
+
 void LinksPanelWidget::refreshItemIcons(QListWidget* list)
 {
     const QIcon iconFolder  = QIcon::fromTheme("folder");
-    const QIcon iconFile    = QIcon::fromTheme("text-x-generic");
     const QIcon iconMissing = QIcon::fromTheme("dialog-warning");
 
     for (int i = 0; i < list->count(); ++i) {
@@ -231,7 +260,7 @@ void LinksPanelWidget::refreshItemIcons(QListWidget* list)
         if (exists) {
             if (isFile) {
                 item->setText(fi.fileName() + "\n  └─ " + fi.dir().path());
-                item->setIcon(iconFile);
+                item->setIcon(iconForPath(path));
             } else {
                 item->setText(formatDriveInfo(path));
                 item->setIcon(iconFolder);
@@ -265,6 +294,26 @@ void LinksPanelWidget::saveLinks()
 
     QString err;
     m_db->save(Database::Atomic, {}, &err);
+}
+
+// ─── Adiciona link externo (chamado ao importar documento) ───────────────────
+
+void LinksPanelWidget::addExternalLink(const QString& filePath)
+{
+    if (!m_entry || filePath.isEmpty()) return;
+
+    // Evita duplicata
+    for (int i = 0; i < m_localList->count(); ++i) {
+        if (m_localList->item(i)->data(Qt::UserRole).toString() == filePath)
+            return;
+    }
+
+    auto* item = new QListWidgetItem(filePath);
+    item->setData(Qt::UserRole, filePath);
+    item->setToolTip(filePath);
+    m_localList->addItem(item);
+    refreshItemIcons(m_localList);
+    saveLinks();
 }
 
 // ─── Sugestão de apps por extensão ────────────────────────────────────────────

@@ -1,3 +1,5 @@
+﻿
+
 -001-Implementacao_
 Funcionalidade de Buscar na REDE, WWW, com bota chamado busca avancada usando o poder da IA, caos nao ofere;a risco ao Banco
 
@@ -223,7 +225,7 @@ Base para tua camada futura de:
 multi-user
 cloud sync
 CFDM Holding dashboard
-4. mindmaps.app (minimalista hackável)
+4. mindmaps.app (minimalista hackável)sudo apt install hunspell-pt-br libreoffice-l10n-pt-br
 
 💡 Código extremamente simples
 

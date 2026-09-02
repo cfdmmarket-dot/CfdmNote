@@ -7,6 +7,7 @@
 
 #include <QRegularExpression>
 #include <QScrollBar>
+#include <QTextCursor>
 
 NoteEditorWidget::NoteEditorWidget(QWidget* parent)
     : QWidget(parent)
@@ -131,6 +132,18 @@ void NoteEditorWidget::clearNote()
     }
     m_preview->setHtml(tr("<p style='color:gray'>Selecione uma entrada para ver sua nota.</p>"));
     m_dirty = false;
+}
+
+void NoteEditorWidget::appendText(const QString& text)
+{
+    const QString current = m_editor->toPlainText();
+    const QString sep = current.trimmed().isEmpty() ? QString() : QStringLiteral("\n\n---\n");
+    // setPlainText dispara onTextChanged → auto-save via timer
+    m_editor->setPlainText(current + sep + text);
+    // Rola para o final
+    QTextCursor c = m_editor->textCursor();
+    c.movePosition(QTextCursor::End);
+    m_editor->setTextCursor(c);
 }
 
 void NoteEditorWidget::onTextChanged()

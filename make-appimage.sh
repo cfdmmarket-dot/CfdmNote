@@ -100,8 +100,9 @@ echo "[→] Resolvendo dependências e plugins Qt..."
 export APPDIR="${APPDIR}"
 export OUTPUT="${SCRIPT_DIR}/CfdmNote-${VERSION}-linux-x86_64.AppImage"
 
-# Executa sem criar AppImage ainda (--plugin qt copia plugins Qt automaticamente)
+# --appimage-extract-and-run: não precisa de FUSE no host
 "${LINUXDEPLOY}" \
+    --appimage-extract-and-run \
     --appdir "${APPDIR}" \
     --executable "${APPDIR}/usr/bin/cfdmnote" \
     --plugin qt \
@@ -112,7 +113,9 @@ echo "[✓] Dependências resolvidas"
 # ── 5. Cria o AppImage final ──────────────────────────────────────────────────
 echo ""
 echo "[→] Gerando AppImage..."
+# --appimage-extract-and-run: não precisa de FUSE instalado no host
 ARCH=x86_64 "${APPIMAGETOOL}" \
+    --appimage-extract-and-run \
     --no-appstream \
     "${APPDIR}" \
     "${OUTPUT}" 2>&1

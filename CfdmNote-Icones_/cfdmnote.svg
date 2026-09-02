@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CfdmNote App Icon 256x256 — estilo CFDM Holding -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="58%">
+      <stop offset="0%"   stop-color="#1a2a6c"/>
+      <stop offset="100%" stop-color="#080e2a"/>
+    </radialGradient>
+
+    <!-- Crown gradients -->
+    <linearGradient id="cMain" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="40%"  stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="cLeft" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#eff6ff"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="cRight" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#bfdbfe"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+
+    <!-- Pavilion gradients -->
+    <linearGradient id="pLeft" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0%"   stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="pRight" x1="1" y1="0" x2="0.3" y2="1">
+      <stop offset="0%"   stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="pCenter" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%"   stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#0c1a4a"/>
+    </linearGradient>
+
+    <!-- Orbital ring -->
+    <linearGradient id="ringFront" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%"   stop-color="#1e40af" stop-opacity="0.05"/>
+      <stop offset="25%"  stop-color="#60a5fa" stop-opacity="0.95"/>
+      <stop offset="50%"  stop-color="#ffffff"  stop-opacity="1.00"/>
+      <stop offset="75%"  stop-color="#3b82f6" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#1e40af" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="ringBack" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%"   stop-color="#1e40af" stop-opacity="0.0"/>
+      <stop offset="40%"  stop-color="#3b82f6" stop-opacity="0.40"/>
+      <stop offset="100%" stop-color="#1e40af" stop-opacity="0.0"/>
+    </linearGradient>
+
+    <!-- Glow / sparkle filters -->
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="ringBlur" x="-10%" y="-80%" width="120%" height="260%">
+      <feGaussianBlur stdDeviation="2.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="128" cy="128" r="124" fill="url(#bg)"/>
+  <circle cx="128" cy="128" r="121" fill="none" stroke="#1e40af" stroke-width="1.5" opacity="0.45"/>
+
+  <!-- Ambient glow behind diamond -->
+  <ellipse cx="128" cy="128" rx="90" ry="70" fill="#3b82f6" opacity="0.07" filter="url(#softglow)"/>
+
+  <!-- ═══ GEOMETRY
+       Table   : (78,38) → (178,38)     w=100
+       Girdle  : (24,128) → (232,128)   w=208
+       Culet   : (128,220)
+  ═══ -->
+
+  <!-- ── RING BACK (behind diamond) ── -->
+  <ellipse cx="128" cy="152" rx="112" ry="28"
+           fill="none" stroke="url(#ringBack)" stroke-width="9"
+           opacity="0.50"/>
+  <!-- ring back blur -->
+  <ellipse cx="128" cy="152" rx="112" ry="28"
+           fill="none" stroke="#3b82f6" stroke-width="6"
+           opacity="0.18" filter="url(#ringBlur)"/>
+
+  <!-- ── PAVILION ── -->
+  <polygon points="24,128   76,128  128,220"  fill="url(#pLeft)"   opacity="0.93"/>
+  <polygon points="76,128  128,128  128,220"  fill="url(#pCenter)" opacity="0.84"/>
+  <polygon points="128,128 180,128  128,220"  fill="url(#pCenter)" opacity="0.80"/>
+  <polygon points="180,128 232,128  128,220"  fill="url(#pRight)"  opacity="0.90"/>
+
+  <!-- pavilion lines -->
+  <line x1="76"  y1="128" x2="128" y2="220" stroke="white" stroke-width="0.8" opacity="0.20"/>
+  <line x1="128" y1="128" x2="128" y2="220" stroke="white" stroke-width="1.2" opacity="0.28"/>
+  <line x1="180" y1="128" x2="128" y2="220" stroke="white" stroke-width="0.8" opacity="0.20"/>
+
+  <!-- pavilion outline -->
+  <polyline points="24,128 128,220 232,128"
+            fill="none" stroke="#60a5fa" stroke-width="1.8" opacity="0.65"/>
+
+  <!-- ── RING FRONT (over pavilion, under crown) ── -->
+  <ellipse cx="128" cy="152" rx="112" ry="28"
+           fill="none" stroke="url(#ringFront)" stroke-width="10"
+           opacity="0.88"/>
+  <!-- ring glow -->
+  <ellipse cx="128" cy="152" rx="112" ry="28"
+           fill="none" stroke="#93c5fd" stroke-width="4"
+           opacity="0.30" filter="url(#ringBlur)"/>
+  <!-- ring white highlight moving sweep -->
+  <ellipse cx="128" cy="152" rx="112" ry="28"
+           fill="none" stroke="white" stroke-width="2.5"
+           stroke-dasharray="70 290" stroke-dashoffset="-50"
+           opacity="0.55"/>
+
+  <!-- ── CROWN ── -->
+  <!-- Base trapezoid fill -->
+  <polygon points="24,128  78,38  178,38  232,128"  fill="url(#cMain)" opacity="0.88"/>
+
+  <!-- Left outer triangle (darker) -->
+  <polygon points="24,128   78,38   78,128"          fill="#bfdbfe"  opacity="0.38"/>
+  <!-- Left inner quad -->
+  <polygon points="78,38  128,38  128,128   78,128"  fill="#eff6ff"  opacity="0.22"/>
+  <!-- Right inner quad (slightly darker) -->
+  <polygon points="128,38 178,38  178,128  128,128"  fill="#3b82f6"  opacity="0.18"/>
+  <!-- Right outer triangle -->
+  <polygon points="178,38 232,128  178,128"           fill="#1e40af"  opacity="0.42"/>
+
+  <!-- Crown inner facet lines -->
+  <line x1="78"  y1="38" x2="24"  y2="128" stroke="#93c5fd" stroke-width="1.0" opacity="0.38"/>
+  <line x1="128" y1="38" x2="128" y2="128" stroke="white"   stroke-width="0.9" opacity="0.26"/>
+  <line x1="178" y1="38" x2="232" y2="128" stroke="#93c5fd" stroke-width="1.0" opacity="0.38"/>
+
+  <!-- Table highlight (bright top face) -->
+  <polygon points="78,38  178,38  164,54  92,54"  fill="white" opacity="0.38"/>
+  <!-- Table top line -->
+  <line x1="78" y1="38" x2="178" y2="38"   stroke="white" stroke-width="3.0" opacity="0.92"/>
+
+  <!-- Crown outline -->
+  <polyline points="24,128 78,38 178,38 232,128"
+            fill="none" stroke="#93c5fd" stroke-width="2.0" opacity="0.72"/>
+
+  <!-- Girdle -->
+  <line x1="24" y1="128" x2="232" y2="128"
+        stroke="#bfdbfe" stroke-width="1.8" opacity="0.68"/>
+
+  <!-- ── SPARKLES ── -->
+  <!-- Large sparkle top-left -->
+  <g transform="translate(68,30)" filter="url(#glow)" opacity="0.92">
+    <line x1="0" y1="-14" x2="0"   y2="14"  stroke="white" stroke-width="2.2"/>
+    <line x1="-14" y1="0" x2="14"  y2="0"   stroke="white" stroke-width="2.2"/>
+    <line x1="-9"  y1="-9" x2="9"  y2="9"   stroke="white" stroke-width="1.1"/>
+    <line x1="9"   y1="-9" x2="-9" y2="9"   stroke="white" stroke-width="1.1"/>
+  </g>
+  <!-- Medium sparkle top-right -->
+  <g transform="translate(194,32)" filter="url(#glow)" opacity="0.78">
+    <line x1="0" y1="-9" x2="0"  y2="9"   stroke="#bfdbfe" stroke-width="1.8"/>
+    <line x1="-9" y1="0" x2="9"  y2="0"   stroke="#bfdbfe" stroke-width="1.8"/>
+    <line x1="-6" y1="-6" x2="6" y2="6"   stroke="#bfdbfe" stroke-width="0.9"/>
+    <line x1="6"  y1="-6" x2="-6" y2="6"  stroke="#bfdbfe" stroke-width="0.9"/>
+  </g>
+  <!-- Small sparkle left -->
+  <g transform="translate(38,90)" opacity="0.60">
+    <line x1="0" y1="-6" x2="0" y2="6"    stroke="white" stroke-width="1.2"/>
+    <line x1="-6" y1="0" x2="6" y2="0"    stroke="white" stroke-width="1.2"/>
+  </g>
+  <!-- Dot sparkles -->
+  <circle cx="100" cy="34" r="4.5" fill="white"  opacity="0.80" filter="url(#glow)"/>
+  <circle cx="78"  cy="44" r="2.5" fill="white"  opacity="0.55"/>
+  <circle cx="218" cy="78" r="2.0" fill="#93c5fd" opacity="0.60"/>
+  <circle cx="156" cy="32" r="3.0" fill="white"  opacity="0.65" filter="url(#glow)"/>
+</svg>

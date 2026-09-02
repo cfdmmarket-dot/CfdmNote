@@ -33,6 +33,8 @@ public:
     void loadNoteForEntry(const QString& entryId);
     void loadNote(const QString& noteId);
     void clearNote();
+    // Acrescenta texto ao final da nota atual (cria nota se não existir)
+    void appendText(const QString& text);
 
     QString currentNoteId() const { return m_currentNoteId; }
 

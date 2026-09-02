@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CfdmNote toolbar/button icon 32x32 — fundo transparente -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="cm" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="45%"  stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="cl" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#eff6ff"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="cr" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#bfdbfe"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+    <linearGradient id="pl" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%"   stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="pr" x1="1" y1="0" x2="0.4" y2="1">
+      <stop offset="0%"   stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%"   stop-color="#1e40af" stop-opacity="0.0"/>
+      <stop offset="30%"  stop-color="#60a5fa" stop-opacity="1.0"/>
+      <stop offset="55%"  stop-color="#ffffff"  stop-opacity="1.0"/>
+      <stop offset="75%"  stop-color="#3b82f6" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#1e40af" stop-opacity="0.0"/>
+    </linearGradient>
+    <filter id="g" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="1.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Ring back -->
+  <ellipse cx="16" cy="20" rx="14" ry="3.5"
+           fill="none" stroke="#3b82f6" stroke-width="2" opacity="0.30"/>
+
+  <!-- Crown: table y=4, girdle y=16 -->
+  <polygon points="3,16  7,4  25,4  29,16"   fill="url(#cm)" opacity="0.90"/>
+  <polygon points="3,16  7,4   7,16"         fill="#dbeafe"  opacity="0.35"/>
+  <polygon points="7,4  16,4  16,16   7,16"  fill="#eff6ff"  opacity="0.20"/>
+  <polygon points="16,4 25,4  25,16  16,16"  fill="#3b82f6"  opacity="0.17"/>
+  <polygon points="25,4 29,16  25,16"        fill="#1e40af"  opacity="0.40"/>
+
+  <!-- Crown lines -->
+  <line x1="7"  y1="4" x2="3"  y2="16" stroke="#93c5fd" stroke-width="0.7" opacity="0.40"/>
+  <line x1="16" y1="4" x2="16" y2="16" stroke="white"   stroke-width="0.7" opacity="0.25"/>
+  <line x1="25" y1="4" x2="29" y2="16" stroke="#93c5fd" stroke-width="0.7" opacity="0.40"/>
+
+  <!-- Table highlight -->
+  <polygon points="7,4 25,4 22,7 10,7" fill="white" opacity="0.32"/>
+  <line x1="7" y1="4" x2="25" y2="4"  stroke="white" stroke-width="1.8" opacity="0.90"/>
+  <!-- Crown outline -->
+  <polyline points="3,16 7,4 25,4 29,16" fill="none" stroke="#93c5fd" stroke-width="1.1" opacity="0.70"/>
+  <!-- Girdle -->
+  <line x1="3" y1="16" x2="29" y2="16" stroke="#bfdbfe" stroke-width="1.0" opacity="0.65"/>
+
+  <!-- Ring front -->
+  <ellipse cx="16" cy="20" rx="14" ry="3.5"
+           fill="none" stroke="url(#ring)" stroke-width="3"
+           opacity="0.90"/>
+  <!-- ring highlight sweep -->
+  <ellipse cx="16" cy="20" rx="14" ry="3.5"
+           fill="none" stroke="white" stroke-width="1"
+           stroke-dasharray="12,60" stroke-dashoffset="-6"
+           opacity="0.55"/>
+
+  <!-- Pavilion -->
+  <polygon points="3,16   9,16  16,29"  fill="url(#pl)" opacity="0.92"/>
+  <polygon points="9,16  16,16  16,29"  fill="#1e3a8a"  opacity="0.80"/>
+  <polygon points="16,16 23,16  16,29"  fill="#1e3a8a"  opacity="0.75"/>
+  <polygon points="23,16 29,16  16,29"  fill="url(#pr)" opacity="0.88"/>
+  <line x1="9"  y1="16" x2="16" y2="29" stroke="white" stroke-width="0.6" opacity="0.20"/>
+  <line x1="16" y1="16" x2="16" y2="29" stroke="white" stroke-width="0.8" opacity="0.28"/>
+  <line x1="23" y1="16" x2="16" y2="29" stroke="white" stroke-width="0.6" opacity="0.20"/>
+  <polyline points="3,16 16,29 29,16"   fill="none" stroke="#60a5fa" stroke-width="1.1" opacity="0.65"/>
+
+  <!-- Sparkles -->
+  <g transform="translate(7,2)" filter="url(#g)" opacity="0.88">
+    <line x1="0" y1="-5" x2="0" y2="5"   stroke="white" stroke-width="1.3"/>
+    <line x1="-5" y1="0" x2="5" y2="0"   stroke="white" stroke-width="1.3"/>
+    <line x1="-3" y1="-3" x2="3" y2="3"  stroke="white" stroke-width="0.7"/>
+    <line x1="3"  y1="-3" x2="-3" y2="3" stroke="white" stroke-width="0.7"/>
+  </g>
+  <circle cx="24" cy="2.5" r="1.6" fill="white" opacity="0.75" filter="url(#g)"/>
+  <circle cx="13" cy="2.0" r="2.2" fill="white" opacity="0.70" filter="url(#g)"/>
+</svg>
