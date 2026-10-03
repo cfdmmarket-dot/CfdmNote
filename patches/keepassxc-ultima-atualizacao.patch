@@ -1,0 +1,67 @@
+diff --git a/src/core/Database.cpp b/src/core/Database.cpp
+index 95f4f1e1..53c17852 100644
+--- a/src/core/Database.cpp
++++ b/src/core/Database.cpp
+@@ -20,6 +20,7 @@
+ 
+ #include "core/AsyncTask.h"
+ #include "core/FileWatcher.h"
++#include "core/Entry.h"
+ #include "core/Group.h"
+ #include "crypto/Random.h"
+ #include "format/KdbxXmlReader.h"
+@@ -28,6 +29,8 @@
+ #include "streams/HashingStream.h"
+ 
+ #include <QFileInfo>
++#include <QSysInfo>
++#include <QUuid>
+ #include <QJsonObject>
+ #include <QRegularExpression>
+ #include <QSaveFile>
+@@ -315,6 +318,45 @@ bool Database::saveAs(const QString& filePath, SaveAction action, const QString&
+     int length = Random::instance()->randomUIntRange(64, 512);
+     m_metadata->customData()->set(CustomData::RandomSlug, Random::instance()->randomArray(length).toHex());
+ 
++    // CfdmNote: carimbo "🕒 Atualizações / Última atualização" dentro da própria base, na MESMA gravação.
++    // Se a nota mudou, a gravação aconteceu. O histórico da nota guarda as gravações anteriores.
++    // markAsClean() depois do save pára o temporizador de alteração — não gera nova gravação.
++    if (filePath == m_data.filePath && rootGroup()) {
++        const QString nomeGrupo = QStringLiteral("🕒 Atualizações");
++        const QString tituloNota = QStringLiteral("Última atualização");
++        Group* grupo = nullptr;
++        for (Group* g : rootGroup()->children()) {
++            if (g->name() == nomeGrupo) { grupo = g; break; }
++        }
++        if (!grupo) {
++            grupo = new Group();
++            grupo->setUuid(QUuid::createUuid());
++            grupo->setName(nomeGrupo);
++            grupo->setIcon(8);
++            grupo->setParent(rootGroup());
++        }
++        Entry* nota = nullptr;
++        for (Entry* e : grupo->entries()) {
++            if (e->title() == tituloNota) { nota = e; break; }
++        }
++        if (!nota) {
++            nota = new Entry();
++            nota->setUuid(QUuid::createUuid());
++            nota->setTitle(tituloNota);
++            nota->setIcon(8);
++            nota->setGroup(grupo);
++        }
++        const auto agora = QDateTime::currentDateTime();
++        nota->beginUpdate();
++        nota->setNotes(QStringLiteral("Gravado em: %1\nFicheiro: %2\nNotas na base: %3\nGrupos na base: %4\nGravado por: CfdmNote (desktop) em %5")
++                           .arg(agora.toString(QStringLiteral("dd/MM/yyyy HH:mm:ss")), filePath)
++                           .arg(rootGroup()->entriesRecursive().size())
++                           .arg(rootGroup()->groupsRecursive(true).size())
++                           .arg(QSysInfo::machineHostName()));
++        nota->setUsername(agora.toString(QStringLiteral("dd/MM/yyyy HH:mm:ss")));
++        nota->endUpdate();
++    }
++
+     // Prevent destructive operations while saving
+     QMutexLocker locker(&m_saveMutex);
+ 

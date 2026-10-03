@@ -690,3 +690,10 @@ Dois problemas identificados: rota CSV com grupos hierárquicos quebrada, e aus�
 - **Nota:** NoteManager não tem `openDatabase()` chamado no startup → mensagens "QSqlQuery: database not open" em stderr (falha silenciosa, não causa crash)
 - **Status:** usuário confirmou que está OK após reabrir o banco
 
+
+## 2026-10-03 — 🕒 Nota "Última atualização" gravada pelo próprio app
+- A cada gravação da base aberta, o app atualiza **🕒 Atualizações → Última atualização** na MESMA gravação (data/hora, ficheiro, nº de notas e grupos, computador). Campo Utilizador = data/hora (visível na lista). Histórico da nota = últimas gravações.
+- Mudança em `third_party/keepassxc/src/core/Database.cpp` (`Database::saveAs`), guardada como `patches/keepassxc-ultima-atualizacao.patch` porque o submódulo aponta para o KeePassXC oficial. Num clone novo: `git -C third_party/keepassxc apply ../../patches/keepassxc-ultima-atualizacao.patch` antes de compilar.
+- Sem ciclo de gravações: `markAsClean()` depois do save pára o temporizador de alteração.
+- Testado pelo Cristiano: gravou com Ctrl+S, a nota apareceu.
+- Mesma sessão: base única = `/home/cfdm/CfdmNote-Database_/CfdmNote-PRINCIPAL.kdbx` (pasta tinha sido renomeada para `Cfdm-Note-Database_`, devolvida ao nome original); app passa a abrir sempre esse ficheiro; 219 cópias antigas arquivadas em `~/CfdmNote-ARQUIVO-antigos/` (lista lá dentro, nada apagado).
