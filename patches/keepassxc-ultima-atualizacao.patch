@@ -1,5 +1,5 @@
 diff --git a/src/core/Database.cpp b/src/core/Database.cpp
-index 95f4f1e1..53c17852 100644
+index 95f4f1e1..77ee1898 100644
 --- a/src/core/Database.cpp
 +++ b/src/core/Database.cpp
 @@ -20,6 +20,7 @@
@@ -19,7 +19,7 @@ index 95f4f1e1..53c17852 100644
  #include <QJsonObject>
  #include <QRegularExpression>
  #include <QSaveFile>
-@@ -315,6 +318,45 @@ bool Database::saveAs(const QString& filePath, SaveAction action, const QString&
+@@ -315,6 +318,47 @@ bool Database::saveAs(const QString& filePath, SaveAction action, const QString&
      int length = Random::instance()->randomUIntRange(64, 512);
      m_metadata->customData()->set(CustomData::RandomSlug, Random::instance()->randomArray(length).toHex());
  
@@ -29,9 +29,11 @@ index 95f4f1e1..53c17852 100644
 +    if (filePath == m_data.filePath && rootGroup()) {
 +        const QString nomeGrupo = QStringLiteral("🕒 Atualizações");
 +        const QString tituloNota = QStringLiteral("Última atualização");
++        // Procura em toda a árvore (o grupo pode ter sido arrumado, ex.: "00 Cfdm Holding"), nunca na Lixeira.
++        // Só cria no topo se não existir em lado nenhum — antes procurava só no topo e duplicava o grupo.
 +        Group* grupo = nullptr;
-+        for (Group* g : rootGroup()->children()) {
-+            if (g->name() == nomeGrupo) { grupo = g; break; }
++        for (Group* g : rootGroup()->groupsRecursive(false)) {
++            if (g->name() == nomeGrupo && !g->isRecycled()) { grupo = g; break; }
 +        }
 +        if (!grupo) {
 +            grupo = new Group();
